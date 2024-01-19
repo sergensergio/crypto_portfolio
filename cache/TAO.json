@@ -1,0 +1,61 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:17.530Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 266,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "TAO": {
+            "id": 22974,
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "slug": "bittensor",
+            "num_market_pairs": 14,
+            "date_added": "2023-03-06T05:20:00.000Z",
+            "tags": [
+                "ai-big-data",
+                "distributed-computing",
+                "oracles",
+                "dao",
+                "polkadot-ecosystem",
+                "polychain-capital-portfolio",
+                "dcg-portfolio",
+                "open-source",
+                "generative-ai"
+            ],
+            "max_supply": 21000000,
+            "circulating_supply": 6073829,
+            "total_supply": 6073829,
+            "is_active": 1,
+            "infinite_supply": false,
+            "platform": null,
+            "cmc_rank": 211,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 238.1463390822895,
+                    "volume_24h": 7275218.51509069,
+                    "volume_change_24h": -13.8253,
+                    "percent_change_1h": 3.64242888,
+                    "percent_change_24h": -1.41413954,
+                    "percent_change_7d": 7.82573323,
+                    "percent_change_30d": -26.94907005,
+                    "percent_change_60d": -20.98830985,
+                    "percent_change_90d": 369.17679983,
+                    "market_cap": 1446460140.5618434,
+                    "market_cap_dominance": 0,
+                    "fully_diluted_market_cap": 5001073120.73,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

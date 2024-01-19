@@ -1,0 +1,77 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:16.684Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 219,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "ROSE": {
+            "id": 7653,
+            "name": "Oasis Network",
+            "symbol": "ROSE",
+            "slug": "oasis-network",
+            "num_market_pairs": 118,
+            "date_added": "2020-11-12T00:00:00.000Z",
+            "tags": [
+                "cosmos-ecosystem",
+                "ai-big-data",
+                "collectibles-nfts",
+                "defi",
+                "privacy",
+                "scaling",
+                "smart-contracts",
+                "polychain-capital-portfolio",
+                "binance-labs-portfolio",
+                "arrington-xrp-capital-portfolio",
+                "blockchain-capital-portfolio",
+                "dragonfly-capital-portfolio",
+                "electric-capital-portfolio",
+                "kenetic-capital-portfolio",
+                "huobi-capital-portfolio",
+                "a16z-portfolio",
+                "winklevoss-capital-portfolio",
+                "pantera-capital-portfolio",
+                "injective-ecosystem"
+            ],
+            "max_supply": 10000000000,
+            "circulating_supply": 6713599876,
+            "total_supply": 10000000000,
+            "platform": {
+                "id": 1027,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "slug": "ethereum",
+                "token_address": "0x26B80FBfC01b71495f477d5237071242e0d959d7"
+            },
+            "is_active": 1,
+            "infinite_supply": false,
+            "cmc_rank": 88,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 0.09937953312580178,
+                    "volume_24h": 58489170.81295639,
+                    "volume_change_24h": 28.6787,
+                    "percent_change_1h": 1.15426926,
+                    "percent_change_24h": -7.50566855,
+                    "percent_change_7d": -16.6723938,
+                    "percent_change_30d": 4.08353692,
+                    "percent_change_60d": 36.68479027,
+                    "percent_change_90d": 135.58458978,
+                    "market_cap": 667194421.2703207,
+                    "market_cap_dominance": 0.0412,
+                    "fully_diluted_market_cap": 993795331.26,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

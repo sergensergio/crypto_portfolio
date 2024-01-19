@@ -1,0 +1,54 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:17.743Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 17,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "TRIAS": {
+            "id": 8936,
+            "name": "Trias Token (New)",
+            "symbol": "TRIAS",
+            "slug": "trias-token",
+            "num_market_pairs": 37,
+            "date_added": "2021-03-24T00:00:00.000Z",
+            "tags": [
+                "metaverse",
+                "bnb-chain"
+            ],
+            "max_supply": null,
+            "circulating_supply": 9704041.64863022,
+            "total_supply": 9999999.8782493,
+            "is_active": 1,
+            "infinite_supply": false,
+            "platform": null,
+            "cmc_rank": 338,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": 9814000,
+            "self_reported_market_cap": 103449027.67154722,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 10.540964710775139,
+                    "volume_24h": 5054653.92645747,
+                    "volume_change_24h": -35.9538,
+                    "percent_change_1h": 2.97764972,
+                    "percent_change_24h": 1.16243118,
+                    "percent_change_7d": -20.83047991,
+                    "percent_change_30d": 45.87985643,
+                    "percent_change_60d": 153.08202627,
+                    "percent_change_90d": 211.15727284,
+                    "market_cap": 102289960.57010335,
+                    "market_cap_dominance": 0,
+                    "fully_diluted_market_cap": 105409645.82,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

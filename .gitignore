@@ -1,0 +1,8 @@
+__pycache__
+.DS_Store
+
+api_key.txt
+
+transactions.py
+exports
+other

@@ -1,0 +1,69 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:17.970Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 31,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "USDT": {
+            "id": 825,
+            "name": "Tether USDt",
+            "symbol": "USDT",
+            "slug": "tether",
+            "num_market_pairs": 72169,
+            "date_added": "2015-02-25T00:00:00.000Z",
+            "tags": [
+                "payments",
+                "stablecoin",
+                "asset-backed-stablecoin",
+                "avalanche-ecosystem",
+                "solana-ecosystem",
+                "arbitrum-ecosytem",
+                "moonriver-ecosystem",
+                "injective-ecosystem",
+                "bnb-chain",
+                "usd-stablecoin",
+                "optimism-ecosystem"
+            ],
+            "max_supply": null,
+            "circulating_supply": 95060023617.71117,
+            "total_supply": 98601637401.38153,
+            "platform": {
+                "id": 1027,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "slug": "ethereum",
+                "token_address": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+            },
+            "is_active": 1,
+            "infinite_supply": true,
+            "cmc_rank": 3,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 0.9988462414030359,
+                    "volume_24h": 48756804015.803795,
+                    "volume_change_24h": 18.5182,
+                    "percent_change_1h": -0.0125775,
+                    "percent_change_24h": 0.00785218,
+                    "percent_change_7d": -0.02812622,
+                    "percent_change_30d": -0.15591417,
+                    "percent_change_60d": -0.17844386,
+                    "percent_change_90d": -0.15219716,
+                    "market_cap": 94950347298.23462,
+                    "market_cap_dominance": 5.8678,
+                    "fully_diluted_market_cap": 98487874914.55,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

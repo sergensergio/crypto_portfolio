@@ -1,0 +1,61 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:14.509Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 18,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "NCDT": {
+            "id": 6933,
+            "name": "Nuco.cloud",
+            "symbol": "NCDT",
+            "slug": "nuco-cloud",
+            "num_market_pairs": 7,
+            "date_added": "2020-09-08T00:00:00.000Z",
+            "tags": [
+                "distributed-computing",
+                "filesharing",
+                "ethereum-ecosystem"
+            ],
+            "max_supply": 50000000,
+            "circulating_supply": 32030898,
+            "total_supply": 50000000,
+            "platform": {
+                "id": 1027,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "slug": "ethereum",
+                "token_address": "0xe0c8b298db4cffe05d1bea0bb1ba414522b33c1b"
+            },
+            "is_active": 1,
+            "infinite_supply": false,
+            "cmc_rank": 846,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": 25000000,
+            "self_reported_market_cap": 10734682.019164871,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 0.4293872807665949,
+                    "volume_24h": 241123.39970712,
+                    "volume_change_24h": 3.4763,
+                    "percent_change_1h": 0.07053638,
+                    "percent_change_24h": -1.8909902,
+                    "percent_change_7d": -22.89468064,
+                    "percent_change_30d": -6.03006076,
+                    "percent_change_60d": 58.84637633,
+                    "percent_change_90d": 230.49438507,
+                    "market_cap": 13753660.192732163,
+                    "market_cap_dominance": 0,
+                    "fully_diluted_market_cap": 21469364.04,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

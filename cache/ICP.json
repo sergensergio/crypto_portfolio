@@ -1,0 +1,80 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:14.065Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 13,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "ICP": {
+            "id": 8916,
+            "name": "Internet Computer",
+            "symbol": "ICP",
+            "slug": "internet-computer",
+            "num_market_pairs": 204,
+            "date_added": "2021-03-23T00:00:00.000Z",
+            "tags": [
+                "platform",
+                "ai-big-data",
+                "collectibles-nfts",
+                "defi",
+                "privacy",
+                "interoperability",
+                "smart-contracts",
+                "dao",
+                "wallet",
+                "storage",
+                "polychain-capital-portfolio",
+                "governance",
+                "launchpad",
+                "lending-borowing",
+                "metaverse",
+                "electric-capital-portfolio",
+                "fenbushi-capital-portfolio",
+                "hashkey-capital-portfolio",
+                "a16z-portfolio",
+                "multicoin-capital-portfolio",
+                "exnetwork-capital-portfolio",
+                "web3",
+                "internet-computer-ecosystem",
+                "bitcoin-ecosystem",
+                "real-world-assets",
+                "layer-1",
+                "sec-security-token",
+                "alleged-sec-securities"
+            ],
+            "max_supply": null,
+            "circulating_supply": 455821744.2514797,
+            "total_supply": 513637977.66665596,
+            "is_active": 1,
+            "infinite_supply": true,
+            "platform": null,
+            "cmc_rank": 19,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": 455821744.2514797,
+            "self_reported_market_cap": 4952115670.179302,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 10.864149709030093,
+                    "volume_24h": 176747113.43920246,
+                    "volume_change_24h": 37.9937,
+                    "percent_change_1h": 2.11567056,
+                    "percent_change_24h": -5.56369402,
+                    "percent_change_7d": -12.56985734,
+                    "percent_change_30d": 16.63079895,
+                    "percent_change_60d": 139.14336346,
+                    "percent_change_90d": 235.98278458,
+                    "market_cap": 4952115670.179302,
+                    "market_cap_dominance": 0.306,
+                    "fully_diluted_market_cap": 5580239885.61,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

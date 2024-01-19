@@ -1,0 +1,58 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:11.536Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 17,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "AKT": {
+            "id": 7431,
+            "name": "Akash Network",
+            "symbol": "AKT",
+            "slug": "akash-network",
+            "num_market_pairs": 65,
+            "date_added": "2020-10-16T00:00:00.000Z",
+            "tags": [
+                "cosmos-ecosystem",
+                "ai-big-data",
+                "distributed-computing",
+                "web3",
+                "injective-ecosystem",
+                "generative-ai"
+            ],
+            "max_supply": 388539008,
+            "circulating_supply": 225592882.482625,
+            "total_supply": 225592882.482625,
+            "is_active": 1,
+            "infinite_supply": false,
+            "platform": null,
+            "cmc_rank": 98,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:20:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 2.6654371218372868,
+                    "volume_24h": 4812888.47458837,
+                    "volume_change_24h": 14.7948,
+                    "percent_change_1h": 3.33032986,
+                    "percent_change_24h": 0.24786577,
+                    "percent_change_7d": -5.92241878,
+                    "percent_change_30d": 10.71948108,
+                    "percent_change_60d": 42.5636115,
+                    "percent_change_90d": 216.09014154,
+                    "market_cap": 601303643.3914653,
+                    "market_cap_dominance": 0.0372,
+                    "fully_diluted_market_cap": 1035626295.21,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:20:00.000Z"
+                }
+            }
+        }
+    }
+}

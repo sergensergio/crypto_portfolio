@@ -1,0 +1,74 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:16.212Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 43,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "RNDR": {
+            "id": 5690,
+            "name": "Render",
+            "symbol": "RNDR",
+            "slug": "render",
+            "num_market_pairs": 284,
+            "date_added": "2020-06-11T00:00:00.000Z",
+            "tags": [
+                "art",
+                "media",
+                "vr-ar",
+                "ai-big-data",
+                "distributed-computing",
+                "collectibles-nfts",
+                "scaling",
+                "video",
+                "ethereum-ecosystem",
+                "solana-ecosystem",
+                "metaverse",
+                "alameda-research-portfolio",
+                "multicoin-capital-portfolio",
+                "polygon-ecosystem",
+                "web3",
+                "generative-ai"
+            ],
+            "max_supply": 536870912,
+            "circulating_supply": 376146335.68794847,
+            "total_supply": 531039932.96794844,
+            "platform": {
+                "id": 1027,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "slug": "ethereum",
+                "token_address": "0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24"
+            },
+            "is_active": 1,
+            "infinite_supply": false,
+            "cmc_rank": 47,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 4.0656211412759715,
+                    "volume_24h": 184734635.66346967,
+                    "volume_change_24h": 44.0406,
+                    "percent_change_1h": 2.49841573,
+                    "percent_change_24h": 2.31829973,
+                    "percent_change_7d": 5.19836261,
+                    "percent_change_30d": -10.49386258,
+                    "percent_change_60d": 15.99970984,
+                    "percent_change_90d": 104.91778752,
+                    "market_cap": 1529268494.5864117,
+                    "market_cap_dominance": 0.0945,
+                    "fully_diluted_market_cap": 2182713729.96,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

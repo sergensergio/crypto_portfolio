@@ -1,0 +1,69 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:11.978Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 14,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "ARB": {
+            "id": 11841,
+            "name": "Arbitrum",
+            "symbol": "ARB",
+            "slug": "arbitrum",
+            "num_market_pairs": 730,
+            "date_added": "2023-03-23T12:50:11.000Z",
+            "tags": [
+                "scaling",
+                "dao",
+                "dapp",
+                "ethereum-ecosystem",
+                "polychain-capital-portfolio",
+                "layer-2",
+                "rollups",
+                "pantera-capital-portfolio",
+                "arbitrum-ecosytem",
+                "modular-blockchain",
+                "egirl-capital-portfolio"
+            ],
+            "max_supply": null,
+            "circulating_supply": 1275000000,
+            "total_supply": 10000000000,
+            "platform": {
+                "id": 11841,
+                "name": "Arbitrum",
+                "symbol": "ARB",
+                "slug": "arbitrum",
+                "token_address": "0x912CE59144191C1204E64559FE8253a0e49E6548"
+            },
+            "is_active": 1,
+            "infinite_supply": false,
+            "cmc_rank": 38,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 1.7961505600811984,
+                    "volume_24h": 719264390.2703174,
+                    "volume_change_24h": 21.7223,
+                    "percent_change_1h": 1.7856449,
+                    "percent_change_24h": -4.10081548,
+                    "percent_change_7d": -20.0045222,
+                    "percent_change_30d": 59.39562029,
+                    "percent_change_60d": 69.55678981,
+                    "percent_change_90d": 115.86582283,
+                    "market_cap": 2290091964.103528,
+                    "market_cap_dominance": 0.1415,
+                    "fully_diluted_market_cap": 17961505600.81,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

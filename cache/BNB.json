@@ -1,0 +1,63 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:12.639Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 12,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "BNB": {
+            "id": 1839,
+            "name": "BNB",
+            "symbol": "BNB",
+            "slug": "bnb",
+            "num_market_pairs": 2023,
+            "date_added": "2017-07-25T00:00:00.000Z",
+            "tags": [
+                "marketplace",
+                "centralized-exchange",
+                "payments",
+                "smart-contracts",
+                "alameda-research-portfolio",
+                "multicoin-capital-portfolio",
+                "bnb-chain",
+                "layer-1",
+                "sec-security-token",
+                "alleged-sec-securities",
+                "celsius-bankruptcy-estate"
+            ],
+            "max_supply": null,
+            "circulating_supply": 149548940.9633675,
+            "total_supply": 149548940.9633675,
+            "is_active": 1,
+            "infinite_supply": false,
+            "platform": null,
+            "cmc_rank": 4,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 310.35749570579844,
+                    "volume_24h": 1100142237.8571227,
+                    "volume_change_24h": 4.4703,
+                    "percent_change_1h": 0.42713046,
+                    "percent_change_24h": -0.0172295,
+                    "percent_change_7d": 3.16402325,
+                    "percent_change_30d": 19.01657815,
+                    "percent_change_60d": 19.82787626,
+                    "percent_change_90d": 44.6787719,
+                    "market_cap": 46413634802.84503,
+                    "market_cap_dominance": 2.8683,
+                    "fully_diluted_market_cap": 46413634802.85,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}

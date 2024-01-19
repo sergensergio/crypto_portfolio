@@ -1,0 +1,78 @@
+{
+    "status": {
+        "timestamp": "2024-01-19T18:21:13.857Z",
+        "error_code": 0,
+        "error_message": null,
+        "elapsed": 41,
+        "credit_count": 1,
+        "notice": null
+    },
+    "data": {
+        "GRT": {
+            "id": 6719,
+            "name": "The Graph",
+            "symbol": "GRT",
+            "slug": "the-graph",
+            "num_market_pairs": 408,
+            "date_added": "2020-12-17T00:00:00.000Z",
+            "tags": [
+                "ai-big-data",
+                "enterprise-solutions",
+                "defi",
+                "coinbase-ventures-portfolio",
+                "solana-ecosystem",
+                "analytics",
+                "coinfund-portfolio",
+                "dcg-portfolio",
+                "fabric-ventures-portfolio",
+                "framework-ventures-portfolio",
+                "ledgerprime-portfolio",
+                "multicoin-capital-portfolio",
+                "parafi-capital",
+                "polygon-ecosystem",
+                "fantom-ecosystem",
+                "web3",
+                "near-protocol-ecosystem",
+                "arbitrum-ecosytem",
+                "spartan-group",
+                "injective-ecosystem"
+            ],
+            "max_supply": null,
+            "circulating_supply": 9389446132.126352,
+            "total_supply": 10793047443.256144,
+            "platform": {
+                "id": 1027,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "slug": "ethereum",
+                "token_address": "0xc944e90c64b2c07662a292be6244bdf05cda44a7"
+            },
+            "is_active": 1,
+            "infinite_supply": false,
+            "cmc_rank": 48,
+            "is_fiat": 0,
+            "self_reported_circulating_supply": null,
+            "self_reported_market_cap": null,
+            "tvl_ratio": null,
+            "last_updated": "2024-01-19T18:19:00.000Z",
+            "quote": {
+                "USD": {
+                    "price": 0.15003547198156159,
+                    "volume_24h": 80097634.86741589,
+                    "volume_change_24h": 16.9545,
+                    "percent_change_1h": 1.3846865,
+                    "percent_change_24h": -2.93230799,
+                    "percent_change_7d": -17.72961708,
+                    "percent_change_30d": -8.8769652,
+                    "percent_change_60d": 7.11574731,
+                    "percent_change_90d": 80.60066836,
+                    "market_cap": 1408749982.079025,
+                    "market_cap_dominance": 0.0871,
+                    "fully_diluted_market_cap": 1619339967.27,
+                    "tvl": null,
+                    "last_updated": "2024-01-19T18:19:00.000Z"
+                }
+            }
+        }
+    }
+}
