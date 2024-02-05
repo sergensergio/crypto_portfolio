@@ -74,7 +74,7 @@ class Portfolio:
         df = df.groupby(level=index_columns).agg(agg_dict)
         
         # Set average buy price
-        df["Price"] = df[agg_columns[1]] / df[agg_columns[0]]
+        df["Price"] = -1 * df[agg_columns[1]] / df[agg_columns[0]]
 
         # Sort and reset index
         df.sort_index(inplace=True)
@@ -86,18 +86,24 @@ class Portfolio:
         return df
 
     def _get_transactions_mexc(self, file_name: str) -> pd.DataFrame:
-
+        def preprocess_mexc(df: pd.DataFrame) -> pd.DataFrame:
+            df.loc[df["Seite"] == "SELL", "Ausgeführter Betrag"] *= -1
+            df.loc[df["Seite"] == "BUY", "Gesamt"] *= -1
+            return df
         index_columns = ["Zeit", "Paare", "Seite"]
         agg_columns = ["Ausgeführter Betrag", "Gesamt", "Gebühr"]
-        df = self._get_transactions(file_name, index_columns, agg_columns)
+        df = self._get_transactions(file_name, index_columns, agg_columns, preprocess_mexc)
 
         return df
 
     def _get_transactions_kucoin(self, file_name: str) -> pd.DataFrame:
-        
+        def preprocess_kucoin(df: pd.DataFrame) -> pd.DataFrame:
+            df.loc[df["side"] == "sell", "size"] *= -1
+            df.loc[df["side"] == "buy", "funds"] *= -1
+            return df
         index_columns = ["tradeCreatedAt", "symbol", "side"]
         agg_columns = ["size", "funds", "fee"]
-        df = self._get_transactions(file_name, index_columns, agg_columns)
+        df = self._get_transactions(file_name, index_columns, agg_columns, preprocess_kucoin)
 
         return df
         
@@ -106,8 +112,6 @@ class Portfolio:
             df["Time"] = df["Time"].str[:8]
             df["Datetime"] = df["Date"] + " " + df["Time"]
             df["Currency"] = df["Currency"] + "-EUR"
-            df["EUR received / paid"] = df["EUR received / paid"].abs()
-            df["Amount"] = df["Amount"].abs()
             return df
         index_columns = ["Datetime", "Currency", "Type"]
         agg_columns = ["Amount", "EUR received / paid", "Fee amount"]
@@ -174,37 +178,47 @@ class Portfolio:
         return new_data
 
     def show_portfolio(self):
-        index_columns = ["Pair", "Side"]
-        df = self.transactions.set_index(index_columns)
+        # Sum up transactions for same buy symbol and different currencies
+        df = self.transactions.copy()
+        index_columns = ["Symbol Buy", "Symbol Sell"]
+        df[index_columns] = df["Pair"].str.split("-", expand=True)
+        df.set_index(index_columns, inplace=True)
         df = df.groupby(level=index_columns).agg({
             "Size": "sum",
             "Funds": "sum",
             "Fee": "sum"
         })
-        df = df.unstack(level="Side").fillna(0)
-        s_size = df["Size"]["buy"] - df["Size"]["sell"]
-        s_funds = df["Funds"]["sell"] - df["Funds"]["buy"]
-        s_fee = df["Fee"]["buy"] + df["Fee"]["sell"]
+        df.reset_index(inplace=True)
 
+        # Convert EUR values to USD
         c = CurrencyRates()
         eur_in_usd = c.get_rates("EUR")["USD"]
-        profits = []
-        for pair, size, fund, fee in tqdm(
-            zip(s_size.index, s_size.values, s_funds.values, s_fee.values),
-            desc="Get current prices",
-            total=len(s_size.index)
-        ):
-            symbol, currency = pair.split("-")
-            if currency == "EUR":
-                fund *= eur_in_usd
-                fee *= eur_in_usd
+        df.loc[df["Symbol Sell"] == "EUR", ["Funds", "Fee"]] *= eur_in_usd
 
+        # Sum up transactions for same buy symbol
+        df.set_index("Symbol Buy", inplace=True)
+        df = df.groupby(level="Symbol Buy").agg({
+            "Size": "sum",
+            "Funds": "sum",
+            "Fee": "sum"
+        })
+
+        df["Current Price"] = 0
+
+        for symbol in tqdm(
+            df.index,
+            desc="Get current prices",
+            total=len(df)
+        ):
             data = self._get_data_for_symbol(symbol)
             current_price = data["data"][symbol]["quote"]["USD"]["price"]
-            current_value = current_price * size
-            profits.append({symbol: current_value + fund})
+            df.loc[symbol, "Current Price"] = current_price
 
-        df_profits = pd.DataFrame(profits)
+        df["Current Value"] = df["Current Price"] * df["Size"]
+        df["Profit/Loss"] = df["Current Value"] + df["Funds"] - df["Fee"]
+
+        print(df)
+
 
 
 if __name__ == "__main__":
