@@ -1,11 +1,7 @@
-from typing import List, Callable, Optional, Dict
-
-import os
-import json
-from datetime import datetime
-from tqdm import tqdm
 import pandas as pd
-from forex_python.converter import CurrencyRates
+from typing import List, Callable, Optional
+
+from conversion_handler import ConversionHandler
 
 
 COLUMNS = ["Datetime", "Pair", "Side", "Price", "Size", "Funds", "Fee"]
@@ -17,11 +13,7 @@ class TransactionsHandler:
     """
     def __init__(self, cache_root: str) -> None:
         self.transactions = pd.DataFrame(columns=COLUMNS)
-        self.cache_path = cache_root + "/conversion"
-        if not os.path.exists(self.cache_path):
-            os.makedirs(self.cache_path)
-        # Get EUR to USD conversion
-        self.converter = CurrencyRates()
+        self.conversion_handler = ConversionHandler(cache_root)
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
@@ -108,7 +100,7 @@ class TransactionsHandler:
         # Get conversion data to convert from EUR to USD
         from_curr = "EUR"
         to_curr = "USD"
-        conversion_data = self._get_conversion_dict(from_curr, to_curr)
+        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
 
         def preprocess_bitvavo(df: pd.DataFrame) -> pd.DataFrame:
             df["Time"] = df["Time"].str[:8]
@@ -120,11 +112,10 @@ class TransactionsHandler:
         df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitvavo)
 
         df["Conversion"] = df["Datetime"].apply(
-            lambda str_timestamp: self._get_conversion_rate(
+            lambda str_timestamp: self.conversion_handler.get_conversion_rate(
                 from_curr,
                 to_curr,
-                str_timestamp[:10],
-                conversion_data
+                str_timestamp[:10]
             )
         )
         df["Price"] *= df["Conversion"]
@@ -133,37 +124,6 @@ class TransactionsHandler:
         df["Pair"] = df["Pair"].str.replace("EUR", "USD")
         df.drop(columns="Conversion", inplace=True)
 
-        self._save_conversion_dict(from_curr, to_curr, conversion_data)
+        self.conversion_handler.save_conversion_dict(from_curr, to_curr)
 
         return df
-
-    def _get_conversion_rate(
-            self,
-            from_curr: str,
-            to_curr: str,
-            str_timestamp: str,
-            conversion_data: Dict
-        )-> float:
-        if not str_timestamp in conversion_data.keys():
-            timestamp = datetime.strptime(str_timestamp, "%Y-%m-%d")
-            conversion = self.converter.get_rates(from_curr, timestamp)[to_curr]
-            conversion_data[str_timestamp] = conversion
-        return conversion_data[str_timestamp]
-
-    def _get_conversion_dict(self, from_curr: str, to_curr: str):
-        # Load conversion dict from file or create new dict
-        file_name = "_".join([from_curr, to_curr]) + ".json"
-        path = os.path.join(self.cache_path, file_name)
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                conversion_data = json.load(file)
-        else:
-            conversion_data = dict()
-        return conversion_data
-    
-    def _save_conversion_dict(self, from_curr: str, to_curr: str, conversion_data: Dict):
-        file_name = "_".join([from_curr, to_curr]) + ".json"
-        path = os.path.join(self.cache_path, file_name)
-        with open(path, 'w') as file:
-            json.dump(conversion_data, file, indent=4)
-        
