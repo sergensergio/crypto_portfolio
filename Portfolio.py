@@ -9,7 +9,7 @@ from requests import Session
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from TransactionsHandler import TransactionsHandler
+from transactions_handler import TransactionsHandler
 
 
 URL_CMC = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
