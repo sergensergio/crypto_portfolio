@@ -1,12 +1,13 @@
-from typing import List, Callable, Optional, Union, Dict
+from typing import Union, Dict
 
+import glob
 import os
 import json
 from datetime import datetime
 from tqdm import tqdm
 from requests import Session
 import pandas as pd
-from forex_python.converter import CurrencyRates
+import matplotlib.pyplot as plt
 
 from TransactionsHandler import TransactionsHandler
 
@@ -17,11 +18,11 @@ URL_CMC = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 class Portfolio:
     def __init__(
         self,
-        cache_path: str = "cache",
+        cache_root: str = "cache",
         api_key_path: str = "api_key.txt",
     ) -> None:
-        self.transactions_handler = TransactionsHandler()
-        self.cache_path = cache_path
+        self.transactions_handler = TransactionsHandler(cache_root)
+        self.cache_path = cache_root + "/symbols"
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
         if not os.path.exists(api_key_path):
@@ -51,17 +52,17 @@ class Portfolio:
 
     def _get_data_from_api(self, symbol: str) -> Dict:
         """
-        Fetch data for crypto via API call.‚
+        Fetch data for crypto via API call and save it in the cache.
         """
         headers = {
             "Accepts": "application/json",
             "X-CMC_PRO_API_KEY": self.api_key
         }
 
-        parameters = { "symbol": symbol, "convert": "USD" }
+        parameters = {"symbol": symbol, "convert": "USD"}
         session = Session()
         session.headers.update(headers)
-        response = session.get(URL_CMC, params=parameters) # Receiving the response from the API
+        response = session.get(URL_CMC, params=parameters)
 
         new_data = json.loads(response.text)
 
@@ -91,53 +92,66 @@ class Portfolio:
         return new_data
 
     def show_portfolio(self):
-        # Sum up transactions for same buy symbol and different currencies
+        # Get transactions and split pair column
         df = self.transactions_handler.transactions.copy()
         index_columns = ["Symbol Buy", "Symbol Sell"]
         df[index_columns] = df["Pair"].str.split("-", expand=True)
-        df.set_index(index_columns, inplace=True)
-        df = df.groupby(level=index_columns).agg({
-            "Size": "sum",
-            "Funds": "sum",
-            "Fee": "sum"
-        })
-        df.reset_index(inplace=True)
 
-        # Convert EUR values to USD
-        c = CurrencyRates()
-        eur_in_usd = c.get_rates("EUR")["USD"]
-        df.loc[df["Symbol Sell"] == "EUR", ["Funds", "Fee"]] *= eur_in_usd
+        # Sum up all buy and sell sizes
+        buy = df.groupby("Symbol Buy").agg({
+            "Size": "sum"
+        }).reset_index()
+        sell = df.groupby("Symbol Sell").agg({
+            "Funds": "sum"
+        }).reset_index()
+        buy.columns = ["Asset", "Size"]
+        sell.columns = ["Asset", "Size"]
+        pf = pd.concat((buy, sell)).groupby("Asset").sum()
 
-        # Sum up transactions for same buy symbol
-        df.set_index("Symbol Buy", inplace=True)
-        df = df.groupby(level="Symbol Buy").agg({
-            "Size": "sum",
-            "Funds": "sum",
-            "Fee": "sum"
-        })
+        # Get total spent value and drop row
+        total_spent = pf.loc["USD"]["Size"]
+        pf.drop("USD", inplace=True)
 
-        df["Current Price"] = 0.0
-
+        # Set current market prices
+        pf["Current Price"] = 0.0
         for symbol in tqdm(
-            df.index,
+            pf.index,
             desc="Get current prices",
-            total=len(df)
+            total=len(pf.index)
         ):
-            data = self._get_data_for_symbol(symbol)
-            current_price = data["data"][symbol]["quote"]["USD"]["price"]
-            df.loc[symbol, "Current Price"] = current_price
+            if symbol == "CHNG":
+                current_price = 0.098
+            else:
+                data = self._get_data_for_symbol(symbol)
+                current_price = data["data"][symbol]["quote"]["USD"]["price"]
+            pf.loc[symbol, "Current Price"] = current_price
 
-        df["Current Value"] = df["Current Price"] * df["Size"]
-        df["Profit/Loss"] = df["Current Value"] + df["Funds"] - df["Fee"]
+        # Set current value of assets
+        pf["Current Value"] = pf["Current Price"] * pf["Size"]
+        pf = pf[pf["Current Value"] > 0.1]
 
-        print(df)
+        pf.reset_index(inplace=True)
+        pf.sort_values("Current Value", inplace=True)
 
+        # Show and plot information
+        print(f"Total invested money (USD): {total_spent}")
+        print(f"Total portfolio value (USD): {pf['Current Value'].sum()}")
+        plt.figure(figsize=(10, 7))
+        plt.pie(
+            pf['Current Value'],
+            labels=pf['Asset'],
+            autopct=lambda pct: "{:d}".format(int(pct*pf["Current Value"].sum()/100)),
+            startangle=90,
+            pctdistance=0.8
+        )
+        plt.title('Portfolio Value Distribution')
+        plt.show()
 
 if __name__ == "__main__":
-    path_root = "exports"
-    csv_names = os.listdir(path=path_root)
+    path_csvs = "exports"
+
     pf = Portfolio()
-    for c in csv_names:
-        file_name = os.path.join(path_root, c)
-        pf.add_transactions_from_csv(file_path=file_name)
+    for filename in glob.iglob(path_csvs + "/**/*.csv", recursive=True):
+        pf.add_transactions_from_csv(file_path=filename)
+        
     pf.show_portfolio()
