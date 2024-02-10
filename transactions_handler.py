@@ -111,6 +111,7 @@ class TransactionsHandler:
         agg_columns = ["Amount", "EUR received / paid", "Fee amount"]
         df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitvavo)
 
+        print("Loading conversion rates...")
         df["Conversion"] = df["Datetime"].apply(
             lambda str_timestamp: self.conversion_handler.get_conversion_rate(
                 from_curr,
