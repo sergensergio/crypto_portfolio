@@ -22,7 +22,14 @@ class CMCApiInterface:
         if not os.path.exists(api_key_path):
             raise FileNotFoundError(f"{api_key_path} not found.")
         with open(api_key_path, "r") as file:
-            self.api_key = file.read()
+            api_key = file.read()
+        
+        self.session = Session()
+        headers = {
+            "Accepts": "application/json",
+            "X-CMC_PRO_API_KEY": api_key
+        }
+        self.session.headers.update(headers)
 
     def _get_data_from_cache(self, symbol: str) -> Union[Dict, None]:
         """
@@ -45,23 +52,16 @@ class CMCApiInterface:
         """
         Fetch data for crypto via API call and save it in the cache.
         """
-        headers = {
-            "Accepts": "application/json",
-            "X-CMC_PRO_API_KEY": self.api_key
-        }
-
         parameters = {"symbol": symbol, "convert": "USD"}
-        session = Session()
-        session.headers.update(headers)
 
-        response = session.get(URL_CMC, params=parameters)
+        response = self.session.get(URL_CMC, params=parameters)
         new_data = json.loads(response.text)
 
         while new_data["status"]["error_code"] == 1008:
             print(new_data["status"]["error_message"])
             for i in tqdm(range(60), desc="Waiting 1 minute..."):
                 time.sleep(1)
-            response = session.get(URL_CMC, params=parameters)
+            response = self.session.get(URL_CMC, params=parameters)
             new_data = json.loads(response.text)
 
         file_name = symbol + ".json"
