@@ -2,6 +2,7 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from typing import Dict
 
 from transactions_handler import TransactionsHandler
 from cmc_api_interface import CMCApiInterface
@@ -17,6 +18,22 @@ class Portfolio:
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_transactions_from_csv(file_path)
+
+    def add_transaction_manually(self, transaction_dict: Dict):
+        """
+        Add a single transaction manually. Provide a dict
+        with the following fields (example):
+        t_btc = {
+            "Datetime": "2021-02-25 20:06:29",
+            "Pair": "BTC-EUR",
+            "Side": "buy",
+            "Size": 0.02380119,
+            "Funds": 1000,
+            "Fee": 0,
+        }
+        Format of the values should be according to the example.
+        """
+        self.transactions_handler.add_transaction_manually(transaction_dict)
 
     def show_portfolio(self):
         # Get transactions and split pair column
@@ -82,5 +99,43 @@ if __name__ == "__main__":
     pf = Portfolio()
     for filename in glob.iglob(path_csvs + "/**/*.csv", recursive=True):
         pf.add_transactions_from_csv(file_path=filename)
+    
+    t_btc = {
+        "Datetime": "2021-02-25 20:06:29",
+        "Pair": "BTC-EUR",
+        "Side": "buy",
+        "Size": 0.02380119,
+        "Funds": 1000,
+        "Fee": 0,
+    }
+    t_eth = {
+        "Datetime": "2021-02-25 21:22:55",
+        "Pair": "ETH-EUR",
+        "Side": "buy",
+        "Size": 0.76384081,
+        "Funds": 1000,
+        "Fee": 0,
+    }
+    pf.add_transaction_manually(t_btc)
+    pf.add_transaction_manually(t_eth)
+    # Swaps
+    s_bnb_weco = {
+        "Datetime": "2023-12-03 16:58:00",
+        "Pair": "WECO-BNB",
+        "Side": "buy",
+        "Size": 6486.648,
+        "Funds": 0.008,
+        "Fee": 0.001,
+    }
+    s_bnb_weco_2 = {
+        "Datetime": "2023-12-03 21:05:00",
+        "Pair": "WECO-BNB",
+        "Side": "buy",
+        "Size": 4310655.395,
+        "Funds": 4.772,
+        "Fee": 0.001,
+    }
+    pf.add_transaction_manually(s_bnb_weco)
+    pf.add_transaction_manually(s_bnb_weco_2)
         
     pf.show_portfolio()
