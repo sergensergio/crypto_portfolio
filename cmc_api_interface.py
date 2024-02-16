@@ -57,9 +57,10 @@ class CMCApiInterface:
         response = self.session.get(URL_CMC, params=parameters)
         new_data = json.loads(response.text)
 
+        # Error 1008 occurs when api acces rate per minute got reached
         while new_data["status"]["error_code"] == 1008:
             print(new_data["status"]["error_message"])
-            for i in tqdm(range(60), desc="Waiting 1 minute..."):
+            for _ in tqdm(range(60), desc="Waiting 1 minute..."):
                 time.sleep(1)
             response = self.session.get(URL_CMC, params=parameters)
             new_data = json.loads(response.text)
