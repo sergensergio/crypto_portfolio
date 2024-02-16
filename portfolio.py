@@ -61,8 +61,9 @@ class Portfolio:
         pf.sort_values("Current Value", inplace=True)
 
         # Show and plot information
-        print(f"Total invested money (USD): {total_spent}")
+        print(f"Total invested money (USD): {abs(total_spent)}")
         print(f"Total portfolio value (USD): {pf['Current Value'].sum()}")
+        print(f"Total portfolio profit/loss (USD): {total_spent + pf['Current Value'].sum()}")
         plt.figure(figsize=(10, 7))
         plt.pie(
             pf['Current Value'],
@@ -73,6 +74,7 @@ class Portfolio:
         )
         plt.title('Portfolio Value Distribution')
         plt.show()
+
 
 if __name__ == "__main__":
     path_csvs = "exports"
