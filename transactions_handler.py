@@ -4,7 +4,7 @@ from typing import List, Callable, Optional, Dict
 from conversion_handler import ConversionHandler
 
 
-COLUMNS = ["Datetime", "Pair", "Side", "Price", "Size", "Funds", "Fee"]
+COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee"]
 
 
 class TransactionsHandler:
@@ -39,7 +39,6 @@ class TransactionsHandler:
         sign_side = 1 if df.iloc[0]["Side"] == "buy" else -1
         df["Size"] = sign_side * abs(df["Size"])
         df["Funds"] = -1 * sign_side * abs(df["Funds"])
-        df["Price"] = abs(df["Funds"] / df["Size"])
         return df
 
     def add_transaction_manually(self, transaction_dict: Dict):
@@ -57,7 +56,6 @@ class TransactionsHandler:
                 df.iloc[0]["Datetime"][:10]
             )
             self.conversion_handler.save_conversion_dict(from_curr, to_curr)
-            df["Price"] *= conv
             df["Funds"] *= conv
             df["Fee"] *= conv
             df["Pair"] = df["Pair"].str.replace("EUR", "USD")
@@ -111,13 +109,10 @@ class TransactionsHandler:
         agg_dict = {key: "sum" for key in agg_columns}
         df = df.groupby(level=index_columns).agg(agg_dict)
 
-        # Set average buy price
-        df["Price"] = (df[agg_columns[1]] / df[agg_columns[0]]).abs()
-
         # Sort and reset index
         df.sort_index(inplace=True)
         df.reset_index(inplace=True)
-        columns_reordered = index_columns + ["Price"] + agg_columns
+        columns_reordered = index_columns + agg_columns
         df = df[columns_reordered]
         df.columns = self.transactions.columns
 
@@ -168,7 +163,6 @@ class TransactionsHandler:
                 str_timestamp[:10]
             )
         )
-        df["Price"] *= df["Conversion"]
         df["Funds"] *= df["Conversion"]
         df["Fee"] *= df["Conversion"]
         df["Pair"] = df["Pair"].str.replace("EUR", "USD")
@@ -208,7 +202,6 @@ class TransactionsHandler:
                 str_timestamp[:10]
             )
         )
-        df["Price"] *= df["Conversion"]
         df["Funds"] *= df["Conversion"]
         df["Fee"] *= df["Conversion"]
         df["Pair"] = df["Pair"].str.replace("EUR", "USD")
