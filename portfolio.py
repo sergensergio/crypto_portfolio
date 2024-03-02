@@ -84,31 +84,31 @@ class Portfolio:
         print(f"Total portfolio profit/loss (USD): {total_spent + pf['Current Value'].sum()}")
         plt.figure(figsize=(10, 7))
         plt.pie(
-            pf['Current Value'],
-            labels=pf['Asset'],
+            pf["Current Value"],
+            labels=pf["Asset"],
             autopct=lambda pct: "{:d}".format(int(pct*pf["Current Value"].sum()/100)),
             startangle=90,
             pctdistance=0.8
         )
-        plt.title('Portfolio Value Distribution')
+        plt.title("Portfolio Value Distribution")
         plt.show()
 
-    def show_portfolio_2(self):
-        # Get transactions and split pair column
-        df = self.transactions_handler.transactions.copy()
-        index_columns = ["Symbol Buy", "Symbol Sell"]
-        df[index_columns] = df["Pair"].str.split("-", expand=True)
-        df.drop(columns="Pair", inplace=True)
+    def get_realized_profits(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates realized profits/losses, i.e. funds of all sell orders are compared
+        to funds of corresponding buy orders. Returns funds paid and received and
+        profits/losses for each coin for each year.
+        """
 
         df.sort_values("Datetime")
         # Total Size is the size of the asset inside the portfolio for a given datetime,
         # i.e. the cumultative sum of the sizes of the orders
-        # TODO: Distinguish between different sell symbols?
+        # TODO: Distinguish between different sell symbols
         df["Total Size"] = df.groupby(["Symbol Buy"])["Size"].cumsum()
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
         df.sort_index(inplace=True)
 
-        realized_profits = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        realized_profits = []
 
         for sym in df.index.levels[0]:
             try:
@@ -116,6 +116,11 @@ class Portfolio:
             except:
                 print(f"No sell orders yet for {sym}...")
                 continue
+            if any(["USD" not in elem for elem in df.loc[sym]["Symbol Sell"].unique()]):
+                print(f"Warning: Different sell symbol than USD or USDT for {sym}")
+            total_funds_paid = 0
+            total_funds_received = 0
+            total_profits = 0
             df_sym_buy = df.loc[sym, "buy"].copy()
             for dt, row in df_sym_sell.iterrows():
                 # If coins are sold, substract sell amount in FIFO manner from all
@@ -143,62 +148,118 @@ class Portfolio:
                 # Update funds received
                 funds_received = row["Funds"]
 
-                realized_profits[dt[:4]][sym]["Funds paid"] += funds_paid
-                realized_profits[dt[:4]][sym]["Funds received"] += funds_received
-                realized_profits[dt[:4]][sym]["Profit/Loss"] += funds_paid + funds_received
+                total_funds_paid += funds_paid
+                total_funds_received += funds_received
+                total_profits += funds_paid + funds_received
+            
+                row = {
+                    "Year": dt[:4],
+                    "Symbol Buy": sym,
+                    "Funds paid": funds_paid,
+                    "Funds received": funds_received,
+                    "Profit/Loss": funds_paid + funds_received
+                }
+                realized_profits.append(row)
 
-        # Sum up all buy and sell sizes
-        buy_size = df.groupby("Symbol Buy").agg({
-            "Size": "sum"
-        }).reset_index()
-        buy_funds = df.groupby(["Symbol Buy", "Symbol Sell"]).agg({
-            "Funds": "sum"
-        }).reset_index()
-        sell = df.groupby("Symbol Sell").agg({
-            "Funds": "sum"
-        }).reset_index()
-        buy_size.columns = ["Asset", "Size"]
-        sell.columns = ["Asset", "Size"]
-        pf = pd.concat((buy_size, sell)).groupby("Asset").sum()
+        return pd.DataFrame(realized_profits)
 
-        # Get total spent value and drop row
-        total_spent = pf.loc["USD"]["Size"]
-        pf.drop("USD", inplace=True)
+    def show_portfolio_2(self):
+        # Get transactions and split pair column
+        df = self.transactions_handler.transactions.copy()
+        index_columns = ["Symbol Buy", "Symbol Sell"]
+        df[index_columns] = df["Pair"].str.split("-", expand=True)
+        df.drop(columns="Pair", inplace=True)
+
+        # Create profit dataframe
+        # TODO: Different sell symbols
+        # All buy order funds
+        profit_df = df[df["Side"] == "buy"].groupby("Symbol Buy").agg({"Funds": "sum"})
+        profit_df[["Size", "Fee"]] = df.groupby("Symbol Buy").sum()[["Size", "Fee"]]
+        profit_df.drop(["USDT", "WECO", "BNB"], inplace=True) #TODO
+
+        # Get realized profits
+        realized_profits = self.get_realized_profits(df.copy())
+
+        # Put total profits (sum over all years) in profit dataframe
+        total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Year")
+        profit_df[total_profits.columns] = total_profits
+        profit_df.fillna(0, inplace=True)
+
+        # Left funds are the funds left invested in the asset after profit taking
+        # I.e. all buy order funds - funds paid for realized profits
+        profit_df["Left Funds"] = profit_df["Funds"] - profit_df["Funds paid"]
 
         # Set current market prices
-        pf["Current Price"] = 0.0
+        profit_df["Current Price"] = 0.0
         for symbol in tqdm(
-            pf.index,
+            profit_df.index,
             desc="Get current prices",
-            total=len(pf.index)
+            total=len(profit_df.index)
         ):
             if symbol == "CHNG":
                 current_price = 0.098
             else:
                 data = self.cmc_api_interface.get_data_for_symbol(symbol)
                 current_price = data["data"][symbol]["quote"]["USD"]["price"]
-            pf.loc[symbol, "Current Price"] = current_price
+            profit_df.loc[symbol, "Current Price"] = current_price
 
-        # Set current value of assets
-        pf["Current Value"] = pf["Current Price"] * pf["Size"]
-        pf = pf[pf["Current Value"] > 0.1]
+        profit_df["Current Value"] = profit_df["Current Price"] * profit_df["Size"]
+        profit_df["Fully Sold"] = profit_df["Current Value"] < 0.1
 
-        pf.reset_index(inplace=True)
-        pf.sort_values("Current Value", inplace=True)
+        # Calculate gains
+        profit_df.loc[abs(profit_df["Funds paid"]) > 0, "x realized"] = abs(profit_df["Funds received"] / profit_df["Funds paid"])
+        profit_df["% realized"] = (profit_df["x realized"] - 1) * 100
+        profit_df.loc[abs(profit_df["Left Funds"]) > 0, "x current"] = abs(profit_df["Current Value"] / profit_df["Left Funds"])
+        profit_df["% current"] = (profit_df["x current"] - 1) * 100
+
+        # Reorder columns
+        profit_df = profit_df[[
+            "Funds", "Left Funds", "Funds paid", "Funds received", "Profit/Loss",
+            "x realized", "% realized", "Size", "Current Price", "Current Value",
+            "Fully Sold", "x current", "% current", "Fee", 
+        ]]
+
+        profit_df.reset_index(inplace=True)
 
         # Show and plot information
-        print(f"Total invested money (USD): {abs(total_spent)}")
-        print(f"Total portfolio value (USD): {pf['Current Value'].sum()}")
-        print(f"Total portfolio profit/loss (USD): {total_spent + pf['Current Value'].sum()}")
-        plt.figure(figsize=(10, 7))
-        plt.pie(
-            pf['Current Value'],
-            labels=pf['Asset'],
-            autopct=lambda pct: "{:d}".format(int(pct*pf["Current Value"].sum()/100)),
+        print(f"Total invested money (including reinvestments) (USD): {abs(profit_df['Funds'].sum())}")
+        print(f"Total invested money (excluding reinvestments) (USD): {abs(profit_df['Left Funds'].sum())}")
+        print(f"Total portfolio value (USD): {profit_df['Current Value'].sum()}")
+        print(f"Sum of realized profits and losses (USD): {profit_df['Profit/Loss'].sum()}")
+        print(f"Total portfolio profit/loss (USD): {profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()}")
+
+        # Current portfolio
+        pf_df = profit_df.sort_values("Current Value")
+        pf_df = pf_df[~pf_df["Fully Sold"]]
+        pf_df = pf_df[pf_df["Current Value"] > 50]
+        pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
+
+        total_value = pf_df["Current Value"].sum()
+        pf_df["Ratio value"] = pf_df["Sum Value"] / total_value
+        large_df = pf_df[pf_df["Ratio value"] >= 1/8]
+        other_df = pf_df[pf_df["Ratio value"] < 1/8]
+        other_row = other_df.sum()
+        other_row["Symbol Buy"] = "Other"
+        large_df = pd.concat((other_row.to_frame().T, large_df))
+
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+        axes[0].pie(
+            large_df["Current Value"],
+            labels=large_df["Symbol Buy"],
+            autopct=lambda pct: "{:d}".format(int(pct*large_df["Current Value"].sum()/100)),
             startangle=90,
             pctdistance=0.8
         )
-        plt.title('Portfolio Value Distribution')
+        axes[0].set_title("Portfolio")
+        axes[1].pie(
+            other_df["Current Value"],
+            labels=other_df["Symbol Buy"],
+            autopct=lambda pct: "{:d}".format(int(pct*other_df["Current Value"].sum()/100)),
+            startangle=90,
+            pctdistance=0.8
+        )
+        axes[1].set_title("Other")
+        fig.suptitle("Portfolio Value Distribution")
         plt.show()
 
 
@@ -247,4 +308,4 @@ if __name__ == "__main__":
     pf.add_transaction_manually(s_bnb_weco)
     pf.add_transaction_manually(s_bnb_weco_2)
         
-    pf.show_portfolio_2()
+    pf.show_portfolio_simple()
