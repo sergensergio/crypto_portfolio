@@ -152,14 +152,14 @@ class Portfolio:
                 total_funds_received += funds_received
                 total_profits += funds_paid + funds_received
             
-                row = {
+                row_new = {
                     "Year": dt[:4],
                     "Symbol Buy": sym,
                     "Funds paid": funds_paid,
                     "Funds received": funds_received,
                     "Profit/Loss": funds_paid + funds_received
                 }
-                realized_profits.append(row)
+                realized_profits.append(row_new)
 
         return pd.DataFrame(realized_profits)
 
@@ -186,7 +186,7 @@ class Portfolio:
         profit_df.fillna(0, inplace=True)
 
         # Left funds are the funds left invested in the asset after profit taking
-        # I.e. all buy order funds - funds paid for realized profits
+        # I.e. [all buy order funds] - [funds paid for realized profits]
         profit_df["Left Funds"] = profit_df["Funds"] - profit_df["Funds paid"]
 
         # Set current market prices
@@ -289,23 +289,49 @@ if __name__ == "__main__":
     pf.add_transaction_manually(t_btc)
     pf.add_transaction_manually(t_eth)
     # Swaps
-    s_bnb_weco = {
-        "Datetime": "2023-12-03 16:58:00",
-        "Pair": "WECO-BNB",
-        "Side": "buy",
-        "Size": 6486.648,
-        "Funds": 0.008,
-        "Fee": 0.001,
-    }
-    s_bnb_weco_2 = {
-        "Datetime": "2023-12-03 21:05:00",
-        "Pair": "WECO-BNB",
-        "Side": "buy",
-        "Size": 4310655.395,
-        "Funds": 4.772,
-        "Fee": 0.001,
-    }
-    pf.add_transaction_manually(s_bnb_weco)
-    pf.add_transaction_manually(s_bnb_weco_2)
+    swaps = [
+        {
+            "Datetime": "2023-12-03 16:58:00",
+            "Pair": "WECO-BNB",
+            "Side": "buy",
+            "Size": 6486.648,
+            "Funds": 0.008,
+            "Fee": 0.001,
+        },
+        {
+            "Datetime": "2023-12-03 21:05:00",
+            "Pair": "WECO-BNB",
+            "Side": "buy",
+            "Size": 4310655.395,
+            "Funds": 4.772,
+            "Fee": 0.001,
+        },
+        {
+            "Datetime": "2024-02-14 21:05:00",
+            "Pair": "CHNG-USDT",
+            "Side": "sell",
+            "Size": 34210.22,
+            "Funds": 2800,
+            "Fee": 0,
+        },
+        # {
+        #     "Datetime": "2024-02-23 17:53:00",
+        #     "Pair": "SOUTH-USDT",
+        #     "Side": "buy",
+        #     "Size": 49.12,
+        #     "Funds": 350,
+        #     "Fee": 0,
+        # },
+        {
+            "Datetime": "2024-02-26 11:59:00",
+            "Pair": "TBANK-USDT",
+            "Side": "buy",
+            "Size": 608.058,
+            "Funds": 389.699,
+            "Fee": 0,
+        }
+    ]
+    for swap in swaps:
+        pf.add_transaction_manually(swap)
         
-    pf.show_portfolio_simple()
+    pf.show_portfolio_2()
