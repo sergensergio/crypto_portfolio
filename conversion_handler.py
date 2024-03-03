@@ -21,7 +21,10 @@ class ConversionHandler:
         )-> float:
         if not str_timestamp in self.conversion_data.keys():
             timestamp = datetime.strptime(str_timestamp, "%Y-%m-%d")
-            conversion = self.converter.get_rates(from_curr, timestamp)[to_curr]
+            try:
+                conversion = self.converter.get_rates(from_curr, timestamp)[to_curr]
+            except:
+                conversion = 1.1 #TODO
             self.conversion_data[str_timestamp] = conversion
         return self.conversion_data[str_timestamp]
 
