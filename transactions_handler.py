@@ -24,6 +24,7 @@ class TransactionsHandler:
         else:
             self.transactions = pd.concat((self.transactions, df))
         self.transactions.sort_values(by=["Datetime"] , inplace=True)
+        self.transactions.drop_duplicates(subset=["Datetime", "Pair", "Side"], inplace=True)
         self.transactions.reset_index(drop=True, inplace=True)
 
     def _prepare_dataframe_from_dict(self, d: Dict) -> pd.DataFrame: 
@@ -72,6 +73,8 @@ class TransactionsHandler:
             df = self._get_transactions_bitvavo(file_path)
         elif "bison" in file_path:
             df = self._get_transactions_bison(file_path)
+        elif "bitget" in file_path:
+            df = self._get_transactions_bitget(file_path)
         else:
             raise NotImplementedError(f"Broker not recognised: {file_path}")
 
@@ -141,11 +144,6 @@ class TransactionsHandler:
         return df
         
     def _get_transactions_bitvavo(self, file_name: str) -> pd.DataFrame:
-        # Get conversion data to convert from EUR to USD
-        from_curr = "EUR"
-        to_curr = "USD"
-        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
-
         def preprocess_bitvavo(df: pd.DataFrame) -> pd.DataFrame:
             df["Time"] = df["Time"].str[:8]
             df["Datetime"] = df["Date"] + " " + df["Time"]
@@ -155,7 +153,12 @@ class TransactionsHandler:
         agg_columns = ["Amount", "EUR received / paid", "Fee amount"]
         df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitvavo)
 
+        # Get conversion data to convert from EUR to USD
         print("Loading conversion rates...")
+        from_curr = "EUR"
+        to_curr = "USD"
+        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
+
         df["Conversion"] = df["Datetime"].apply(
             lambda str_timestamp: self.conversion_handler.get_conversion_rate(
                 from_curr,
@@ -204,6 +207,41 @@ class TransactionsHandler:
         )
         df["Funds"] *= df["Conversion"]
         df["Fee"] *= df["Conversion"]
+        df["Pair"] = df["Pair"].str.replace("EUR", "USD")
+        df.drop(columns="Conversion", inplace=True)
+
+        self.conversion_handler.save_conversion_dict(from_curr, to_curr)
+
+        return df
+
+    def _get_transactions_bitget(self, file_name: str) -> pd.DataFrame:
+        def preprocess_bitget(df: pd.DataFrame) -> pd.DataFrame:
+            df["Trading pair"] = df["Trading pair"].str.replace("_SPBL", "")
+            df["Trading pair"] = df["Trading pair"].str.replace("USDT", "-USDT-")
+            df["Trading pair"] = df["Trading pair"].str.strip("-")
+            df.loc[df["Direction"] == "Sell", "Amount"] *= -1
+            df.loc[df["Direction"] == "Buy", "Total"] *= -1
+            df["Fee"] = -df["Fee"] * df["Price"]
+            return df
+        index_columns = ["Date", "Trading pair", "Direction"]
+        agg_columns = ["Amount", "Total", "Fee"]
+        df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitget)
+
+        # Get conversion data to convert from EUR to USD
+        print("Loading conversion rates...")
+        from_curr = "EUR"
+        to_curr = "USD"
+        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
+
+        df["Conversion"] = df["Datetime"].apply(
+            lambda str_timestamp: self.conversion_handler.get_conversion_rate(
+                from_curr,
+                to_curr,
+                str_timestamp[:10]
+            )
+        )
+        df.loc[df["Pair"].str.contains("EUR"), "Funds"] *= df["Conversion"]
+        df.loc[df["Pair"].str.contains("EUR"), "Fee"] *= df["Conversion"]
         df["Pair"] = df["Pair"].str.replace("EUR", "USD")
         df.drop(columns="Conversion", inplace=True)
 
