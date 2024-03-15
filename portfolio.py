@@ -1,9 +1,9 @@
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 from tqdm import tqdm
 from typing import Dict
-from collections import defaultdict
 
 from transactions_handler import TransactionsHandler
 from cmc_api_interface import CMCApiInterface
@@ -118,9 +118,7 @@ class Portfolio:
                 continue
             if any(["USD" not in elem for elem in df.loc[sym]["Symbol Sell"].unique()]):
                 print(f"Warning: Different sell symbol than USD or USDT for {sym}")
-            total_funds_paid = 0
-            total_funds_received = 0
-            total_profits = 0
+
             df_sym_buy = df.loc[sym, "buy"].copy()
             for dt, row in df_sym_sell.iterrows():
                 # If coins are sold, substract sell amount in FIFO manner from all
@@ -141,6 +139,8 @@ class Portfolio:
                 funds_share = size_ratio * df_sym_buy.loc[first_dt]["Funds"]
                 # The funds which have been paid  for the size of the sell order
                 funds_paid = funds_share + df_sym_buy.loc[df_sym_buy.index < first_dt]["Funds"].sum()
+                # Get amount which needs to be taxed (token held less than 1 year according to German tax law)
+                to_be_taxed = 1
                 # Set past funds to 0 (necessary for subsequent iterations)
                 df_sym_buy.loc[df_sym_buy.index < first_dt, "Funds"] = 0
                 # Update funds for first_dt
@@ -148,12 +148,8 @@ class Portfolio:
                 # Update funds received
                 funds_received = row["Funds"]
 
-                total_funds_paid += funds_paid
-                total_funds_received += funds_received
-                total_profits += funds_paid + funds_received
-            
                 row_new = {
-                    "Year": dt[:4],
+                    "Year": dt,
                     "Symbol Buy": sym,
                     "Funds paid": funds_paid,
                     "Funds received": funds_received,
@@ -178,7 +174,7 @@ class Portfolio:
         profit_df.drop(["USDT", "WECO", "BNB"], inplace=True) #TODO
 
         # Get realized profits
-        realized_profits = self.get_realized_profits(df.copy())
+        realized_profits = self.get_realized_profits(df)
 
         # Put total profits (sum over all years) in profit dataframe
         total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Year")
@@ -221,19 +217,34 @@ class Portfolio:
 
         profit_df.reset_index(inplace=True)
 
-        # Show and plot information
-        print(f"Total invested money (including reinvestments) (USD): {abs(profit_df['Funds'].sum())}")
-        print(f"Total invested money (excluding reinvestments) (USD): {abs(profit_df['Left Funds'].sum())}")
-        print(f"Total portfolio value (USD): {profit_df['Current Value'].sum()}")
-        print(f"Sum of realized profits and losses (USD): {profit_df['Profit/Loss'].sum()}")
-        print(f"Total portfolio profit/loss (USD): {profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()}")
+        # Key info
+        self.print_key_info(profit_df)
 
         # Current portfolio
         pf_df = profit_df.sort_values("Current Value")
         pf_df = pf_df[~pf_df["Fully Sold"]]
         pf_df = pf_df[pf_df["Current Value"] > 50]
-        pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
+        self.plot_portfolio_pie(pf_df)
+        self.plot_bar_x(pf_df, "x current")
 
+        # Realized profits
+        pl_df = profit_df[abs(profit_df["Funds paid"]) > 0]
+        self.plot_bar_x(pl_df, "x realized")
+
+    def print_key_info(self, profit_df: pd.DataFrame) -> None:
+        print(f"Total invested money (USD): {abs(profit_df['Left Funds'].sum())}")
+        print(f"Total portfolio value (USD): {profit_df['Current Value'].sum()}")
+        print(f"Sum of realized profits and losses (USD): {profit_df['Profit/Loss'].sum()}")
+        print(f"Total portfolio profit/loss (USD): {profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()}")
+        print(f"Total x: {profit_df['Current Value'].sum() / abs(profit_df['Left Funds'].sum()):.1f}x")
+
+    def plot_portfolio_pie(self, pf_df: pd.DataFrame) -> None:
+        """
+        Plots pie chart for the current value of the assets in the portfolio.
+        Small positions are plotted in a separate pie
+        """
+        
+        pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
         total_value = pf_df["Current Value"].sum()
         pf_df["Ratio value"] = pf_df["Sum Value"] / total_value
         large_df = pf_df[pf_df["Ratio value"] >= 1/8]
@@ -259,9 +270,30 @@ class Portfolio:
             pctdistance=0.8
         )
         axes[1].set_title("Other")
-        fig.suptitle("Portfolio Value Distribution")
-        plt.show()
+        fig.suptitle("Portfolio Value Distribution (in USD)")
 
+    def plot_bar_x(self, pf_df: pd.DataFrame, col: str) -> None:
+        # Plot current x values
+        df_bar = pf_df.set_index("Symbol Buy")[col].sort_values()
+        cmap = colormaps["RdYlGn"]
+        norm_profit = plt.Normalize(vmin=-8, vmax=10, clip=True)
+        norm_loss = plt.Normalize(vmin=0, vmax=2, clip=True)
+        bar_colors = [cmap(norm_profit(value)) if value > 1 else cmap(norm_loss(value)) for value in df_bar]
+        plt.figure()
+        bar_plot = df_bar.plot.barh(color=bar_colors)
+        for b in bar_plot.patches:
+            bar_plot.annotate(
+                f"{b.get_width():.1f}x",
+                (b.get_width(), b.get_y() + b.get_height() / 2),
+                ha="left",
+                va="center",
+                xytext=(5, 0),
+                textcoords="offset points"
+            )
+        plt.axvline(x=1, color="r", linestyle="--", label="1x")
+        plt.xlim(0, df_bar.max() + 1)
+        plt.title((" ".join(col.split(" ")[::-1])).capitalize() + " on assets")
+        plt.show()
 
 if __name__ == "__main__":
     path_csvs = "exports"
@@ -328,7 +360,7 @@ if __name__ == "__main__":
             "Side": "buy",
             "Size": 608.058,
             "Funds": 389.699,
-            "Fee": 0,
+            "Fee": 50,
         }
     ]
     for swap in swaps:
