@@ -1,9 +1,11 @@
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import colormaps
 from tqdm import tqdm
 from typing import Dict
+from datetime import datetime
 
 from transactions_handler import TransactionsHandler
 from cmc_api_interface import CMCApiInterface
@@ -104,6 +106,7 @@ class Portfolio:
         # Total Size is the size of the asset inside the portfolio for a given datetime,
         # i.e. the cumultative sum of the sizes of the orders
         # TODO: Distinguish between different sell symbols
+        df["Price"] = -df["Funds"] / df["Size"]
         df["Total Size"] = df.groupby(["Symbol Buy"])["Size"].cumsum()
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
         df.sort_index(inplace=True)
@@ -120,13 +123,19 @@ class Portfolio:
                 print(f"Warning: Different sell symbol than USD or USDT for {sym}")
 
             df_sym_buy = df.loc[sym, "buy"].copy()
+            df_sym_buy.reset_index(inplace=True)
+            df_sym_buy["Sold Size"] = 0.0
+            df_sym_buy["Sold Value"] = 0.0
+            df_sym_buy["Profits"] = 0.0
+            df_sym_buy["Held days"] = 0
+            df_sym_buy["To be taxed"] = False
             for dt, row in df_sym_sell.iterrows():
                 # If coins are sold, substract sell amount in FIFO manner from all
                 # the buy orders until sell amount is reached and compare funds paid
                 # and received to get realised profit/loss
                 
                 # Get only past buy orders
-                past = df_sym_buy.index < dt
+                past = df_sym_buy["Datetime"] < dt
                 # Get first datetime for which the sell size is covered by the total size
                 first_dt = (df_sym_buy["Total Size"] + row["Size"] >= 0).idxmax()
                 # Reduce past Total Size by the sell amount
@@ -140,7 +149,32 @@ class Portfolio:
                 # The funds which have been paid  for the size of the sell order
                 funds_paid = funds_share + df_sym_buy.loc[df_sym_buy.index < first_dt]["Funds"].sum()
                 # Get amount which needs to be taxed (token held less than 1 year according to German tax law)
-                to_be_taxed = 1
+                df_sym_buy.loc[df_sym_buy.index <= first_dt, "Sold Size"] = \
+                    df_sym_buy.loc[df_sym_buy.index <= first_dt, "Size"] - \
+                    df_sym_buy.loc[df_sym_buy.index <= first_dt, "Total Size"]
+                df_sym_buy.loc[df_sym_buy.index <= first_dt, "Size"] -= \
+                    df_sym_buy.loc[df_sym_buy.index <= first_dt, "Sold Size"]
+                df_sym_buy.loc[df_sym_buy.index <= first_dt, "Sold Value"] = \
+                    df_sym_buy.loc[df_sym_buy.index <= first_dt, "Sold Size"] * \
+                    row["Price"]
+                df_sym_buy.loc[df_sym_buy.index < first_dt, "Profits"] = \
+                    df_sym_buy.loc[df_sym_buy.index < first_dt, "Sold Value"] + \
+                    df_sym_buy.loc[df_sym_buy.index < first_dt, "Funds"]
+                df_sym_buy.loc[first_dt, "Profits"] = \
+                    df_sym_buy.loc[first_dt, "Sold Value"] + \
+                    funds_share
+                df_sym_buy.loc[df_sym_buy.index <= first_dt, "Held days"] = \
+                    (
+                        datetime.strptime(dt, "%Y-%m-%d %H:%M:%S") - \
+                        df_sym_buy.loc[df_sym_buy.index <= first_dt, "Datetime"].apply(
+                            lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
+                        )
+                    ).apply(lambda y: y.days)
+                df_sym_buy.loc[df_sym_buy.index <= first_dt, "To be taxed"] = \
+                    df_sym_buy.loc[df_sym_buy.index <= first_dt, "Held days"] <= 365
+                
+                profits_to_be_taxed = df_sym_buy[df_sym_buy["To be taxed"]]["Profits"].sum()
+                
                 # Set past funds to 0 (necessary for subsequent iterations)
                 df_sym_buy.loc[df_sym_buy.index < first_dt, "Funds"] = 0
                 # Update funds for first_dt
@@ -148,12 +182,15 @@ class Portfolio:
                 # Update funds received
                 funds_received = row["Funds"]
 
+                assert np.isclose(funds_paid + funds_received, df_sym_buy["Profits"].sum())
+
                 row_new = {
                     "Year": dt,
                     "Symbol Buy": sym,
                     "Funds paid": funds_paid,
                     "Funds received": funds_received,
-                    "Profit/Loss": funds_paid + funds_received
+                    "Profit/Loss": funds_paid + funds_received,
+                    "To be taxed": profits_to_be_taxed
                 }
                 realized_profits.append(row_new)
 
