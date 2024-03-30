@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from typing import List, Callable, Optional, Dict
 
@@ -11,9 +12,10 @@ class TransactionsHandler:
     """
     Loads transactions and converts all numbers in USD.
     """
-    def __init__(self, cache_root: str) -> None:
+    def __init__(self, cache_root: str, history_root: str) -> None:
         self.transactions = pd.DataFrame(columns=COLUMNS)
         self.conversion_handler = ConversionHandler(cache_root)
+        self.history_root = history_root
 
     def _extend_transactions_dataframe(self, df: pd.DataFrame):
         """
@@ -32,11 +34,9 @@ class TransactionsHandler:
         keys = d.keys()
         assert all([key in COLUMNS for key in keys]), \
         f"Unrecognised keyword in dict. Use {[c for c in COLUMNS if c != 'Price']}"
-        # Put values in list
-        for k, v in d.items():
-            d[k] = [v]
+
         # Create dataframe and set correct values
-        df = pd.DataFrame(d)
+        df = pd.DataFrame(d, index=[0])
         sign_side = 1 if df.iloc[0]["Side"] == "buy" else -1
         df["Size"] = sign_side * abs(df["Size"])
         df["Funds"] = -1 * sign_side * abs(df["Funds"])
@@ -63,6 +63,65 @@ class TransactionsHandler:
 
         df = df[COLUMNS]
         self._extend_transactions_dataframe(df)
+
+    def get_transactions_based_on_usd(self) -> pd.DataFrame:
+        """
+        Returns transactions with sell symbol equal to USD.
+        For this, swaps are split into two transactions:
+            Buy buy symbol with USD
+            Sell sell symbol with USD
+            Use sell symbol to determine price in USD
+        Purchase of coins with USDT are also considered a swap.
+        """
+        # Get transations where sell symbol is not USD
+        df_swaps_org = self.transactions[self.transactions['Pair'].apply(lambda x: x.split('-')[1]) != "USD"].copy()
+
+        # Get historical data for those symbols
+        df_hist = pd.DataFrame()
+        for sym in df_swaps_org["Pair"].apply(lambda x: x.split('-')[1]).unique():
+            df = pd.read_csv(os.path.join(self.history_root, sym + ".csv"), delimiter=";")
+            df["sym"] = sym
+            if not df_hist.empty:
+                df_hist = pd.concat((df_hist, df))
+            else:
+                df_hist = df
+        df_hist["day"] = df_hist["timestamp"].str[:10]
+        df_hist = df_hist[["open", "close", "day", "sym"]]
+
+        # Additional transactions
+        df_swaps_add = df_swaps_org.copy()
+        df_swaps_add["day"] = df_swaps_add["Datetime"].str[:10]
+        df_swaps_add["sym"] = df_swaps_add["Pair"].apply(lambda x: x.split('-')[1])
+
+        # Match historical data to rows from the additional transactions and keep index
+        df_swaps_add = df_swaps_add.reset_index().merge(df_hist, on=["day", "sym"], how="left").set_index("index")
+
+        # Set values for the new transactions
+        df_swaps_add["price USD"] = (df_swaps_add["open"] + df_swaps_add["close"]) / 2
+        df_swaps_add["Pair"] = df_swaps_add["Pair"].apply(lambda x: x.split('-')[1] + "-USD")
+        df_swaps_add["Side"] = df_swaps_add["Side"].apply(lambda x: "sell" if x == "buy" else "buy")
+        df_swaps_add["Size"] = df_swaps_add["Funds"]
+        df_swaps_add["Funds"] = -df_swaps_add["price USD"] * df_swaps_add["Funds"]
+        df_swaps_add["Fee"] = df_swaps_add["price USD"] * df_swaps_add["Fee"]
+
+        df_swaps_add.drop(columns=["open", "close", "day", "sym", "price USD"], inplace=True)
+
+        # Set values for original transactions
+        df_swaps_org["Pair"] = df_swaps_org["Pair"].apply(lambda x: x.split('-')[0] + "-USD")
+        df_swaps_org["Funds"] = -df_swaps_add["Funds"]
+        df_swaps_org["Fee"] = 0.0
+
+        df_return = pd.concat((
+            df_swaps_org,
+            df_swaps_add, 
+            self.transactions[self.transactions['Pair'].apply(lambda x: x.split('-')[1]) == "USD"]
+        ))
+
+        df_return.sort_values("Datetime", inplace=True)
+        df_return.reset_index(inplace=True)
+        df_return.drop(columns="index", inplace=True)
+
+        return df_return
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:

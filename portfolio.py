@@ -14,9 +14,10 @@ class Portfolio:
     def __init__(
         self,
         cache_root: str = "cache",
+        history_root: str = "historical_data",
         api_key_path: str = "api_key.txt",
     ) -> None:
-        self.transactions_handler = TransactionsHandler(cache_root)
+        self.transactions_handler = TransactionsHandler(cache_root, history_root)
         self.cmc_api_interface = CMCApiInterface(cache_root, api_key_path)
 
     def add_transactions_from_csv(self, file_path: str) -> None:
@@ -105,7 +106,6 @@ class Portfolio:
         df.sort_values("Datetime")
         # Total Size is the size of the asset inside the portfolio for a given datetime,
         # i.e. the cumultative sum of the sizes of the orders
-        # TODO: Distinguish between different sell symbols
         df["Price"] = -df["Funds"] / df["Size"]
         df["Total Size"] = df.groupby(["Symbol Buy"])["Size"].cumsum()
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
@@ -173,7 +173,8 @@ class Portfolio:
                 df_sym_buy.loc[df_sym_buy.index <= first_dt, "To be taxed"] = \
                     df_sym_buy.loc[df_sym_buy.index <= first_dt, "Held days"] <= 365
                 
-                profits_to_be_taxed = df_sym_buy[df_sym_buy["To be taxed"]]["Profits"].sum()
+                # Include always negative profits to lower taxes
+                profits_to_be_taxed = df_sym_buy[df_sym_buy["To be taxed"] | (df_sym_buy["Profits"] < 0)]["Profits"].sum()
                 
                 # Set past funds to 0 (necessary for subsequent iterations)
                 df_sym_buy.loc[df_sym_buy.index < first_dt, "Funds"] = 0
@@ -185,7 +186,7 @@ class Portfolio:
                 assert np.isclose(funds_paid + funds_received, df_sym_buy["Profits"].sum())
 
                 row_new = {
-                    "Year": dt,
+                    "Datetime": dt,
                     "Symbol Buy": sym,
                     "Funds paid": funds_paid,
                     "Funds received": funds_received,
@@ -198,7 +199,7 @@ class Portfolio:
 
     def show_portfolio_2(self):
         # Get transactions and split pair column
-        df = self.transactions_handler.transactions.copy()
+        df = self.transactions_handler.get_transactions_based_on_usd()
         index_columns = ["Symbol Buy", "Symbol Sell"]
         df[index_columns] = df["Pair"].str.split("-", expand=True)
         df.drop(columns="Pair", inplace=True)
@@ -208,15 +209,14 @@ class Portfolio:
         # All buy order funds
         profit_df = df[df["Side"] == "buy"].groupby("Symbol Buy").agg({"Funds": "sum"})
         profit_df[["Size", "Fee"]] = df.groupby("Symbol Buy").sum()[["Size", "Fee"]]
-        profit_df.drop(["USDT", "WECO", "BNB"], inplace=True) #TODO
 
         # Get realized profits
         realized_profits = self.get_realized_profits(df)
 
-        # Put total profits (sum over all years) in profit dataframe
-        total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Year")
+        # Put total profits (sum over all datetimes) in profit dataframe
+        total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Datetime")
         profit_df[total_profits.columns] = total_profits
-        profit_df.fillna(0, inplace=True)
+        profit_df.fillna(0.0, inplace=True)
 
         # Left funds are the funds left invested in the asset after profit taking
         # I.e. [all buy order funds] - [funds paid for realized profits]
@@ -230,10 +230,11 @@ class Portfolio:
             total=len(profit_df.index)
         ):
             if symbol == "CHNG":
-                current_price = 0.098
-            else:
-                data = self.cmc_api_interface.get_data_for_symbol(symbol)
-                current_price = data["data"][symbol]["quote"]["USD"]["price"]
+                symbol = "XCHNG"
+            data = self.cmc_api_interface.get_data_for_symbol(symbol)
+            current_price = data["data"][symbol]["quote"]["USD"]["price"]
+            if symbol == "XCHNG":
+                symbol = "CHNG"
             profit_df.loc[symbol, "Current Price"] = current_price
 
         profit_df["Current Value"] = profit_df["Current Price"] * profit_df["Size"]
@@ -248,8 +249,8 @@ class Portfolio:
         # Reorder columns
         profit_df = profit_df[[
             "Funds", "Left Funds", "Funds paid", "Funds received", "Profit/Loss",
-            "x realized", "% realized", "Size", "Current Price", "Current Value",
-            "Fully Sold", "x current", "% current", "Fee", 
+            "To be taxed", "x realized", "% realized", "Size", "Current Price",
+            "Current Value", "Fully Sold", "x current", "% current", "Fee", 
         ]]
 
         profit_df.reset_index(inplace=True)
@@ -269,10 +270,10 @@ class Portfolio:
         self.plot_bar_x(pl_df, "x realized")
 
     def print_key_info(self, profit_df: pd.DataFrame) -> None:
-        print(f"Total invested money (USD): {abs(profit_df['Left Funds'].sum())}")
-        print(f"Total portfolio value (USD): {profit_df['Current Value'].sum()}")
-        print(f"Sum of realized profits and losses (USD): {profit_df['Profit/Loss'].sum()}")
-        print(f"Total portfolio profit/loss (USD): {profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()}")
+        print(f"Total invested money: {abs(profit_df['Left Funds'].sum()):,.0f}$")
+        print(f"Total portfolio value: {profit_df['Current Value'].sum():,.0f}$")
+        print(f"Sum of realized profits and losses: {profit_df['Profit/Loss'].sum():,.0f}$, to be taxed: {profit_df['To be taxed'].sum():,.0f}$")
+        print(f"Total portfolio profit/loss: {(profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()):,.0f}$")
         print(f"Total x: {profit_df['Current Value'].sum() / abs(profit_df['Left Funds'].sum()):.1f}x")
 
     def plot_portfolio_pie(self, pf_df: pd.DataFrame) -> None:
@@ -328,7 +329,7 @@ class Portfolio:
                 textcoords="offset points"
             )
         plt.axvline(x=1, color="r", linestyle="--", label="1x")
-        plt.xlim(0, df_bar.max() + 1)
+        plt.xlim(0, df_bar.max() + 1.5)
         plt.title((" ".join(col.split(" ")[::-1])).capitalize() + " on assets")
         plt.show()
 
@@ -389,7 +390,7 @@ if __name__ == "__main__":
         #     "Side": "buy",
         #     "Size": 49.12,
         #     "Funds": 350,
-        #     "Fee": 0,
+        #     "Fee": 50,
         # },
         {
             "Datetime": "2024-02-26 11:59:00",
