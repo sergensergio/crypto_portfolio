@@ -40,63 +40,6 @@ class Portfolio:
         """
         self.transactions_handler.add_transaction_manually(transaction_dict)
 
-    def show_portfolio_simple(self):
-        # Get transactions and split pair column
-        df = self.transactions_handler.transactions.copy()
-        index_columns = ["Symbol Buy", "Symbol Sell"]
-        df[index_columns] = df["Pair"].str.split("-", expand=True)
-
-        # Sum up all buy and sell sizes
-        buy = df.groupby("Symbol Buy").agg({
-            "Size": "sum"
-        }).reset_index()
-        sell = df.groupby("Symbol Sell").agg({
-            "Funds": "sum"
-        }).reset_index()
-        buy.columns = ["Asset", "Size"]
-        sell.columns = ["Asset", "Size"]
-        pf = pd.concat((buy, sell)).groupby("Asset").sum()
-
-        # Get total spent value and drop row
-        total_spent = pf.loc["USD"]["Size"]
-        pf.drop("USD", inplace=True)
-
-        # Set current market prices
-        pf["Current Price"] = 0.0
-        for symbol in tqdm(
-            pf.index,
-            desc="Get current prices",
-            total=len(pf.index)
-        ):
-            if symbol == "CHNG":
-                current_price = 0.098
-            else:
-                data = self.cmc_api_interface.get_data_for_symbol(symbol)
-                current_price = data["data"][symbol]["quote"]["USD"]["price"]
-            pf.loc[symbol, "Current Price"] = current_price
-
-        # Set current value of assets
-        pf["Current Value"] = pf["Current Price"] * pf["Size"]
-        pf = pf[pf["Current Value"] > 0.1]
-
-        pf.reset_index(inplace=True)
-        pf.sort_values("Current Value", inplace=True)
-
-        # Show and plot information
-        print(f"Total invested money (USD): {abs(total_spent)}")
-        print(f"Total portfolio value (USD): {pf['Current Value'].sum()}")
-        print(f"Total portfolio profit/loss (USD): {total_spent + pf['Current Value'].sum()}")
-        plt.figure(figsize=(10, 7))
-        plt.pie(
-            pf["Current Value"],
-            labels=pf["Asset"],
-            autopct=lambda pct: "{:d}".format(int(pct*pf["Current Value"].sum()/100)),
-            startangle=90,
-            pctdistance=0.8
-        )
-        plt.title("Portfolio Value Distribution")
-        plt.show()
-
     def get_realized_profits(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculates realized profits/losses, i.e. funds of all sell orders are compared
