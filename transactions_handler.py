@@ -1,11 +1,11 @@
 import os
 import pandas as pd
-from typing import List, Callable, Optional, Dict
+from typing import List, Callable, Optional, Dict, Tuple
 
 from conversion_handler import ConversionHandler
 
 
-COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee"]
+COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Broker"]
 
 
 class TransactionsHandler:
@@ -64,15 +64,10 @@ class TransactionsHandler:
         df = df[COLUMNS]
         self._extend_transactions_dataframe(df)
 
-    def get_transactions_based_on_usd(self) -> pd.DataFrame:
+    def _get_historical_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Returns transactions with sell symbol equal to USD.
-        For this, swaps are split into two transactions:
-            Buy buy symbol with USD
-            Sell sell symbol with USD
-            Use sell symbol to determine price in USD
-        Purchase of coins with USDT are also considered a swap.
-        """
+        Gets historical data for all sell symbols which are not USD and puts them in
+        a new df. The rows which are not USD are also returned."""
         # Get transations where sell symbol is not USD
         df_swaps_org = self.transactions[self.transactions['Pair'].apply(lambda x: x.split('-')[1]) != "USD"].copy()
 
@@ -87,6 +82,19 @@ class TransactionsHandler:
                 df_hist = df
         df_hist["day"] = df_hist["timestamp"].str[:10]
         df_hist = df_hist[["open", "close", "day", "sym"]]
+
+        return df_swaps_org, df_hist
+
+    def get_transactions_based_on_usd(self) -> pd.DataFrame:
+        """
+        Returns transactions with sell symbol equal to USD.
+        For this, swaps are split into two transactions:
+            Buy buy symbol with USD
+            Sell sell symbol with USD
+            Use sell symbol to determine price in USD
+        Purchase of coins with USDT are also considered a swap.
+        """
+        df_swaps_org, df_hist = self._get_historical_data()
 
         # Additional transactions
         df_swaps_add = df_swaps_org.copy()
@@ -123,6 +131,34 @@ class TransactionsHandler:
 
         return df_return
 
+    def get_fees_per_broker(self) -> pd.DataFrame:
+        """
+        Returns fees per broker in USD.
+        """
+        df_no_usd, df_hist = self._get_historical_data()
+
+        # Prepare merge
+        df_no_usd["day"] = df_no_usd["Datetime"].str[:10]
+        df_no_usd["sym"] = df_no_usd["Pair"].apply(lambda x: x.split('-')[1])
+
+        # Match historical data to rows from the additional transactions and keep index
+        df_no_usd = df_no_usd.reset_index().merge(df_hist, on=["day", "sym"], how="left").set_index("index")
+
+        # Convert to usd
+        df_no_usd["price USD"] = (df_no_usd["open"] + df_no_usd["close"]) / 2
+        df_no_usd["Funds"] *= df_no_usd["price USD"]
+        df_no_usd["Fee"] *= df_no_usd["price USD"]
+        
+        # Put in full df
+        df = self.transactions.copy()
+        df.loc[df_no_usd.index] = df_no_usd
+
+        # Get fees per broker
+        df_fees = df.groupby("Broker").agg({"Funds": "sum", "Fee": "sum"})
+        df_fees["% Fee/Funds"] = (df_fees["Fee"] / df_fees["Funds"]).abs() * 100
+
+        return df_fees
+
     def add_transactions_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
             df = self._get_transactions_mexc(file_path)
@@ -144,6 +180,7 @@ class TransactionsHandler:
         file_name: str,
         index_columns: List[str],
         agg_columns: List[str],
+        broker: str,
         delimiter: str = ",",
         preprocess: Optional[Callable] = None
     ) -> pd.DataFrame:
@@ -174,7 +211,8 @@ class TransactionsHandler:
         # Sort and reset index
         df.sort_index(inplace=True)
         df.reset_index(inplace=True)
-        columns_reordered = index_columns + agg_columns
+        df["Broker"] = broker
+        columns_reordered = index_columns + agg_columns + ["Broker"]
         df = df[columns_reordered]
         df.columns = self.transactions.columns
 
@@ -187,7 +225,7 @@ class TransactionsHandler:
             return df
         index_columns = ["Zeit", "Paare", "Seite"]
         agg_columns = ["Ausgeführter Betrag", "Gesamt", "Gebühr"]
-        df = self._get_transactions(file_name, index_columns, agg_columns, ";", preprocess_mexc)
+        df = self._get_transactions(file_name, index_columns, agg_columns, "MEXC", ";", preprocess_mexc)
 
         return df
 
@@ -198,7 +236,7 @@ class TransactionsHandler:
             return df
         index_columns = ["tradeCreatedAt", "symbol", "side"]
         agg_columns = ["size", "funds", "fee"]
-        df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_kucoin)
+        df = self._get_transactions(file_name, index_columns, agg_columns, "KuCoin", ",", preprocess_kucoin)
 
         return df
         
@@ -210,7 +248,7 @@ class TransactionsHandler:
             return df
         index_columns = ["Datetime", "Currency", "Type"]
         agg_columns = ["Amount", "EUR received / paid", "Fee amount"]
-        df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitvavo)
+        df = self._get_transactions(file_name, index_columns, agg_columns, "Bitvavo", ",", preprocess_bitvavo)
 
         # Get conversion data to convert from EUR to USD
         print("Loading conversion rates...")
@@ -254,7 +292,7 @@ class TransactionsHandler:
             return df
         index_columns = [" Date", "Pair", "TransactionType"]
         agg_columns = [" AssetAmount", " EurAmount", " Fee"]
-        df = self._get_transactions(file_name, index_columns, agg_columns, ";", preprocess_bison)
+        df = self._get_transactions(file_name, index_columns, agg_columns, "Bison", ";", preprocess_bison)
 
         print("Loading conversion rates...")
         df["Conversion"] = df["Datetime"].apply(
@@ -284,7 +322,7 @@ class TransactionsHandler:
             return df
         index_columns = ["Date", "Trading pair", "Direction"]
         agg_columns = ["Amount", "Total", "Fee"]
-        df = self._get_transactions(file_name, index_columns, agg_columns, ",", preprocess_bitget)
+        df = self._get_transactions(file_name, index_columns, agg_columns, "Bitget", ",", preprocess_bitget)
 
         # Get conversion data to convert from EUR to USD
         print("Loading conversion rates...")

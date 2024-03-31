@@ -34,6 +34,7 @@ class Portfolio:
             "Size": 0.02380119,
             "Funds": 1000,
             "Fee": 0,
+            "Broker": "Bison",
         }
         Format of the values should be according to the example.
         """
@@ -205,13 +206,12 @@ class Portfolio:
         df.drop(columns="Pair", inplace=True)
 
         # Create profit dataframe
-        # TODO: Different sell symbols
         # All buy order funds
         profit_df = df[df["Side"] == "buy"].groupby("Symbol Buy").agg({"Funds": "sum"})
         profit_df[["Size", "Fee"]] = df.groupby("Symbol Buy").sum()[["Size", "Fee"]]
 
         # Get realized profits
-        realized_profits = self.get_realized_profits(df)
+        realized_profits = self.get_realized_profits(df.copy())
 
         # Put total profits (sum over all datetimes) in profit dataframe
         total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Datetime")
@@ -268,6 +268,17 @@ class Portfolio:
         # Realized profits
         pl_df = profit_df[abs(profit_df["Funds paid"]) > 0]
         self.plot_bar_x(pl_df, "x realized")
+
+        # Fees per Broker
+        fees_df = self.transactions_handler.get_fees_per_broker()
+        fees_df.sort_values("% Fee/Funds", inplace=True)
+        fees_df["% Fee/Funds"].plot(kind="bar")
+        plt.title('Fees per Broker in %', fontsize=15)
+        plt.xlabel('Broker', fontsize=14)
+        plt.ylabel('Fee [%]', fontsize=14)
+        plt.xticks(rotation=45)
+        plt.subplots_adjust(bottom=0.25)
+        plt.show()
 
     def print_key_info(self, profit_df: pd.DataFrame) -> None:
         print(f"Total invested money: {abs(profit_df['Left Funds'].sum()):,.0f}$")
@@ -347,6 +358,7 @@ if __name__ == "__main__":
         "Size": 0.02380119,
         "Funds": 1000,
         "Fee": 0,
+        "Broker": "Coinbase Pro",
     }
     t_eth = {
         "Datetime": "2021-02-25 21:22:55",
@@ -355,6 +367,7 @@ if __name__ == "__main__":
         "Size": 0.76384081,
         "Funds": 1000,
         "Fee": 0,
+        "Broker": "Coinbase Pro",
     }
     pf.add_transaction_manually(t_btc)
     pf.add_transaction_manually(t_eth)
@@ -367,6 +380,7 @@ if __name__ == "__main__":
             "Size": 6486.648,
             "Funds": 0.008,
             "Fee": 0.001,
+            "Broker": "PancakeSwap",
         },
         {
             "Datetime": "2023-12-03 21:05:00",
@@ -375,6 +389,7 @@ if __name__ == "__main__":
             "Size": 4310655.395,
             "Funds": 4.772,
             "Fee": 0.001,
+            "Broker": "PancakeSwap",
         },
         {
             "Datetime": "2024-02-14 21:05:00",
@@ -383,6 +398,7 @@ if __name__ == "__main__":
             "Size": 34210.22,
             "Funds": 2800,
             "Fee": 0,
+            "Broker": "Chainge App",
         },
         # {
         #     "Datetime": "2024-02-23 17:53:00",
@@ -391,6 +407,7 @@ if __name__ == "__main__":
         #     "Size": 49.12,
         #     "Funds": 350,
         #     "Fee": 50,
+        #     "Broker": "Uniswap",
         # },
         {
             "Datetime": "2024-02-26 11:59:00",
@@ -399,6 +416,7 @@ if __name__ == "__main__":
             "Size": 608.058,
             "Funds": 389.699,
             "Fee": 50,
+            "Broker": "Uniswap",
         }
     ]
     for swap in swaps:
