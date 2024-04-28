@@ -7,8 +7,8 @@ from tqdm import tqdm
 from typing import Dict
 from datetime import datetime
 
-from transactions_handler import TransactionsHandler
-from cmc_api_interface import CMCApiInterface
+from modules.transactions_handler import TransactionsHandler
+from modules.cmc_api_interface import CMCApiInterface
 
 class Portfolio:
     def __init__(

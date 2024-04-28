@@ -2,7 +2,8 @@ import os
 import pandas as pd
 from typing import List, Callable, Optional, Dict, Tuple
 
-from conversion_handler import ConversionHandler
+from .conversion_handler import ConversionHandler
+from .broker_interfaces import BisonInterface, BitvavoInterface, KuCoinInterface, MEXCInterface, BitgetInterface
 
 
 COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Broker"]
@@ -162,19 +163,46 @@ class TransactionsHandler:
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
-            df = self._get_transactions_mexc(file_path)
+            broker = MEXCInterface(COLUMNS)
         elif "kucoin" in file_path:
-            df = self._get_transactions_kucoin(file_path)
+            broker = KuCoinInterface(COLUMNS)
         elif "bitvavo" in file_path:
-            df = self._get_transactions_bitvavo(file_path)
+            broker = BitvavoInterface(COLUMNS)
         elif "bison" in file_path:
-            df = self._get_transactions_bison(file_path)
+            broker = BisonInterface(COLUMNS)
         elif "bitget" in file_path:
-            df = self._get_transactions_bitget(file_path)
+            broker = BitgetInterface(COLUMNS)
         else:
             raise NotImplementedError(f"Broker not recognised: {file_path}")
-
+    
+        df = broker.get_transactions(file_path)
+        df = self._convert_transactions(df)
         self._extend_transactions_dataframe(df)
+
+    def _convert_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not df["Pair"].str.contains("EUR").any():
+            return df
+        # Get conversion data to convert from EUR to USD
+        print("Loading conversion rates...")
+        from_curr = "EUR"
+        to_curr = "USD"
+        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
+
+        df["Conversion"] = df["Datetime"].apply(
+            lambda str_timestamp: self.conversion_handler.get_conversion_rate(
+                from_curr,
+                to_curr,
+                str_timestamp[:10]
+            )
+        )
+        df.loc[df["Pair"].str.contains("EUR"), "Funds"] *= df["Conversion"]
+        df.loc[df["Pair"].str.contains("EUR"), "Fee"] *= df["Conversion"]
+        df["Pair"] = df["Pair"].str.replace("EUR", "USD")
+        df.drop(columns="Conversion", inplace=True)
+
+        self.conversion_handler.save_conversion_dict(from_curr, to_curr)
+
+        return df
 
     def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
