@@ -1,7 +1,6 @@
 __pycache__
 .DS_Store
 
-api_key.txt
 ideas.txt
 
 transactions.py
@@ -11,3 +10,4 @@ exports
 other
 cache
 historical_data
+api_keys

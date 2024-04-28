@@ -14,11 +14,12 @@ class CMCApiInterface:
     def __init__(
         self,
         cache_root: str = "cache",
-        api_key_path: str = "api_key.txt",
+        api_key_root: str = "api_keys",
     ) -> None:
         self.cache_path = cache_root + "/symbols"
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
+        api_key_path = os.path.join(api_key_root, "cmc.txt")
         if not os.path.exists(api_key_path):
             raise FileNotFoundError(f"{api_key_path} not found.")
         with open(api_key_path, "r") as file:

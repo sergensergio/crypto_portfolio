@@ -15,10 +15,10 @@ class Portfolio:
         self,
         cache_root: str = "cache",
         history_root: str = "historical_data",
-        api_key_path: str = "api_key.txt",
+        api_key_root: str = "api_keys",
     ) -> None:
         self.transactions_handler = TransactionsHandler(cache_root, history_root)
-        self.cmc_api_interface = CMCApiInterface(cache_root, api_key_path)
+        self.cmc_api_interface = CMCApiInterface(cache_root, api_key_root)
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_transactions_from_csv(file_path)
@@ -141,7 +141,7 @@ class Portfolio:
 
         return pd.DataFrame(realized_profits)
 
-    def show_portfolio_2(self):
+    def show_portfolio(self):
         # Get transactions and split pair column
         df = self.transactions_handler.get_transactions_based_on_usd()
         index_columns = ["Symbol Buy", "Symbol Sell"]
@@ -365,4 +365,4 @@ if __name__ == "__main__":
     for swap in swaps:
         pf.add_transaction_manually(swap)
         
-    pf.show_portfolio_2()
+    pf.show_portfolio()
