@@ -23,6 +23,9 @@ class Portfolio:
     def add_transactions_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_transactions_from_csv(file_path)
 
+    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
+        self.transactions_handler.add_deposits_withdrawals_from_csv(file_path)
+
     def add_transaction_manually(self, transaction_dict: Dict):
         """
         Add a single transaction manually. Provide a dict
@@ -288,10 +291,9 @@ class Portfolio:
         plt.show()
 
 if __name__ == "__main__":
-    path_csvs = "exports"
-
+    path_txs = "exports/transactions"
     pf = Portfolio()
-    for filename in glob.iglob(path_csvs + "/**/*.csv", recursive=True):
+    for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
         pf.add_transactions_from_csv(file_path=filename)
     
     t_btc = {
@@ -364,5 +366,9 @@ if __name__ == "__main__":
     ]
     for swap in swaps:
         pf.add_transaction_manually(swap)
+
+    # path_deposits = "exports/deposits_withdrawals"
+    # for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
+    #     pf.add_deposits_withdrawals_from_csv(file_path=filename)
         
     pf.show_portfolio()

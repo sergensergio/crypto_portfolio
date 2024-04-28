@@ -14,6 +14,7 @@ class TransactionsHandler:
     """
     def __init__(self, cache_root: str, history_root: str) -> None:
         self.transactions = pd.DataFrame(columns=COLUMNS)
+        self.deposit_withdrawals = pd.DataFrame()
         self.conversion_handler = ConversionHandler(cache_root)
         self.history_root = history_root
 
@@ -170,6 +171,22 @@ class TransactionsHandler:
             df = self._get_transactions_bison(file_path)
         elif "bitget" in file_path:
             df = self._get_transactions_bitget(file_path)
+        else:
+            raise NotImplementedError(f"Broker not recognised: {file_path}")
+
+        self._extend_transactions_dataframe(df)
+
+    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
+        if "mexc" in file_path:
+            df = self._get_deposits_withdrawals_mexc(file_path)
+        elif "kucoin" in file_path:
+            df = self._get_deposits_withdrawals_kucoin(file_path)
+        elif "bitvavo" in file_path:
+            df = self._get_deposits_withdrawals_bitvavo(file_path)
+        elif "bison" in file_path:
+            df = self._get_deposits_withdrawals_bison(file_path)
+        elif "bitget" in file_path:
+            df = self._get_deposits_withdrawals_bitget(file_path)
         else:
             raise NotImplementedError(f"Broker not recognised: {file_path}")
 
