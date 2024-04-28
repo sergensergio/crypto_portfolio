@@ -7,6 +7,7 @@ from .broker_interfaces import BisonInterface, BitvavoInterface, KuCoinInterface
 
 
 COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Broker"]
+DTYPES = ["object", "object", "object", "float", "float", "float", "object"]
 
 
 class TransactionsHandler:
@@ -15,6 +16,8 @@ class TransactionsHandler:
     """
     def __init__(self, cache_root: str, history_root: str) -> None:
         self.transactions = pd.DataFrame(columns=COLUMNS)
+        for c, d in zip(COLUMNS, DTYPES):
+            self.transactions[c] = self.transactions[c].astype(d)
         self.deposit_withdrawals = pd.DataFrame()
         self.conversion_handler = ConversionHandler(cache_root)
         self.history_root = history_root
@@ -31,39 +34,94 @@ class TransactionsHandler:
         self.transactions.drop_duplicates(subset=["Datetime", "Pair", "Side"], inplace=True)
         self.transactions.reset_index(drop=True, inplace=True)
 
-    def _prepare_dataframe_from_dict(self, d: Dict) -> pd.DataFrame: 
+    def _prepare_dataframe_from_dict_list(self, d_l: List[Dict]) -> pd.DataFrame: 
         # Check dict keywords
-        keys = d.keys()
-        assert all([key in COLUMNS for key in keys]), \
-        f"Unrecognised keyword in dict. Use {[c for c in COLUMNS if c != 'Price']}"
+        for d in d_l:
+            keys = d.keys()
+            assert all([key in COLUMNS for key in keys]), \
+            f"Unrecognised keyword in dict. Use {[c for c in COLUMNS if c != 'Price']}"
 
         # Create dataframe and set correct values
-        df = pd.DataFrame(d, index=[0])
-        sign_side = 1 if df.iloc[0]["Side"] == "buy" else -1
-        df["Size"] = sign_side * abs(df["Size"])
-        df["Funds"] = -1 * sign_side * abs(df["Funds"])
+        df = pd.DataFrame(d_l)
+        def sign_side(elem):
+            return 1 if elem == "buy" else -1
+        df["sign"] = df["Side"].apply(lambda x: sign_side(x))
+        df["Size"] = df["sign"] * abs(df["Size"])
+        df["Funds"] = -1 * df["sign"] * abs(df["Funds"])
+        df.drop(columns="sign", inplace=True)
+
         return df
 
-    def add_transaction_manually(self, transaction_dict: Dict):
+    def add_transactions_manually(self, transaction_dict: Dict):
+        df = self._prepare_dataframe_from_dict_list(transaction_dict)
+        df = self._sanitize_df(df)
+        df = self._convert_transactions(df)
+        self._extend_transactions_dataframe(df)
 
-        df = self._prepare_dataframe_from_dict(transaction_dict)
+    def add_transactions_from_csv(self, file_path: str) -> None:
+        if "mexc" in file_path:
+            broker = MEXCInterface(COLUMNS)
+        elif "kucoin" in file_path:
+            broker = KuCoinInterface(COLUMNS)
+        elif "bitvavo" in file_path:
+            broker = BitvavoInterface(COLUMNS)
+        elif "bison" in file_path:
+            broker = BisonInterface(COLUMNS)
+        elif "bitget" in file_path:
+            broker = BitgetInterface(COLUMNS)
+        else:
+            raise NotImplementedError(f"Broker not recognised: {file_path}")
+    
+        df = broker.get_transactions(file_path)
+        df = self._sanitize_df(df)
+        df = self._convert_transactions(df)
+        self._extend_transactions_dataframe(df)
 
-        # Convert to USD
-        if df.iloc[0]["Pair"].split("-")[1] == "EUR":
-            from_curr = "EUR"
-            to_curr = "USD"
-            self.conversion_handler.load_conversion_dict(from_curr, to_curr)
-            conv = self.conversion_handler.get_conversion_rate(
+    def _convert_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not df["Pair"].str.contains("EUR").any():
+            return df
+        # Get conversion data to convert from EUR to USD
+        print("Loading conversion rates...")
+        from_curr = "EUR"
+        to_curr = "USD"
+        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
+
+        df["Conversion"] = df["Datetime"].apply(
+            lambda str_timestamp: self.conversion_handler.get_conversion_rate(
                 from_curr,
                 to_curr,
-                df.iloc[0]["Datetime"][:10]
+                str_timestamp[:10]
             )
-            self.conversion_handler.save_conversion_dict(from_curr, to_curr)
-            df["Funds"] *= conv
-            df["Fee"] *= conv
-            df["Pair"] = df["Pair"].str.replace("EUR", "USD")
+        )
+        df.loc[df["Pair"].str.contains("EUR"), "Funds"] *= df["Conversion"]
+        df.loc[df["Pair"].str.contains("EUR"), "Fee"] *= df["Conversion"]
+        df["Pair"] = df["Pair"].str.replace("EUR", "USD")
+        df.drop(columns="Conversion", inplace=True)
 
+        self.conversion_handler.save_conversion_dict(from_curr, to_curr)
+
+        return df
+
+    def _sanitize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df[COLUMNS]
+        for c in COLUMNS:
+            df[c] = df[c].astype(self.transactions[c].dtype)
+        return df
+
+    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
+        if "mexc" in file_path:
+            df = self._get_deposits_withdrawals_mexc(file_path)
+        elif "kucoin" in file_path:
+            df = self._get_deposits_withdrawals_kucoin(file_path)
+        elif "bitvavo" in file_path:
+            df = self._get_deposits_withdrawals_bitvavo(file_path)
+        elif "bison" in file_path:
+            df = self._get_deposits_withdrawals_bison(file_path)
+        elif "bitget" in file_path:
+            df = self._get_deposits_withdrawals_bitget(file_path)
+        else:
+            raise NotImplementedError(f"Broker not recognised: {file_path}")
+
         self._extend_transactions_dataframe(df)
 
     def _get_historical_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -160,62 +218,3 @@ class TransactionsHandler:
         df_fees["% Fee/Funds"] = (df_fees["Fee"] / df_fees["Funds"]).abs() * 100
 
         return df_fees
-
-    def add_transactions_from_csv(self, file_path: str) -> None:
-        if "mexc" in file_path:
-            broker = MEXCInterface(COLUMNS)
-        elif "kucoin" in file_path:
-            broker = KuCoinInterface(COLUMNS)
-        elif "bitvavo" in file_path:
-            broker = BitvavoInterface(COLUMNS)
-        elif "bison" in file_path:
-            broker = BisonInterface(COLUMNS)
-        elif "bitget" in file_path:
-            broker = BitgetInterface(COLUMNS)
-        else:
-            raise NotImplementedError(f"Broker not recognised: {file_path}")
-    
-        df = broker.get_transactions(file_path)
-        df = self._convert_transactions(df)
-        self._extend_transactions_dataframe(df)
-
-    def _convert_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
-        if not df["Pair"].str.contains("EUR").any():
-            return df
-        # Get conversion data to convert from EUR to USD
-        print("Loading conversion rates...")
-        from_curr = "EUR"
-        to_curr = "USD"
-        self.conversion_handler.load_conversion_dict(from_curr, to_curr)
-
-        df["Conversion"] = df["Datetime"].apply(
-            lambda str_timestamp: self.conversion_handler.get_conversion_rate(
-                from_curr,
-                to_curr,
-                str_timestamp[:10]
-            )
-        )
-        df.loc[df["Pair"].str.contains("EUR"), "Funds"] *= df["Conversion"]
-        df.loc[df["Pair"].str.contains("EUR"), "Fee"] *= df["Conversion"]
-        df["Pair"] = df["Pair"].str.replace("EUR", "USD")
-        df.drop(columns="Conversion", inplace=True)
-
-        self.conversion_handler.save_conversion_dict(from_curr, to_curr)
-
-        return df
-
-    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
-        if "mexc" in file_path:
-            df = self._get_deposits_withdrawals_mexc(file_path)
-        elif "kucoin" in file_path:
-            df = self._get_deposits_withdrawals_kucoin(file_path)
-        elif "bitvavo" in file_path:
-            df = self._get_deposits_withdrawals_bitvavo(file_path)
-        elif "bison" in file_path:
-            df = self._get_deposits_withdrawals_bison(file_path)
-        elif "bitget" in file_path:
-            df = self._get_deposits_withdrawals_bitget(file_path)
-        else:
-            raise NotImplementedError(f"Broker not recognised: {file_path}")
-
-        self._extend_transactions_dataframe(df)

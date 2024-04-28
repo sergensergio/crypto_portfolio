@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colormaps
 from tqdm import tqdm
-from typing import Dict
+from typing import Dict, List
 from datetime import datetime
 
 from modules.transactions_handler import TransactionsHandler
@@ -26,10 +26,10 @@ class Portfolio:
     def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_deposits_withdrawals_from_csv(file_path)
 
-    def add_transaction_manually(self, transaction_dict: Dict):
+    def add_transactions_manually(self, transaction_list: List[Dict]):
         """
-        Add a single transaction manually. Provide a dict
-        with the following fields (example):
+        Add a single or multiple transactions manually. Provide a dict or
+        list of dicts with the following fields (example):
         t_btc = {
             "Datetime": "2021-02-25 20:06:29",
             "Pair": "BTC-EUR",
@@ -41,7 +41,9 @@ class Portfolio:
         }
         Format of the values should be according to the example.
         """
-        self.transactions_handler.add_transaction_manually(transaction_dict)
+        if isinstance(transaction_list, dict):
+            transaction_list = [transaction_list]
+        self.transactions_handler.add_transactions_manually(transaction_list)
 
     def get_realized_profits(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -314,8 +316,8 @@ if __name__ == "__main__":
         "Fee": 0,
         "Broker": "Coinbase Pro",
     }
-    pf.add_transaction_manually(t_btc)
-    pf.add_transaction_manually(t_eth)
+    pf.add_transactions_manually(t_btc)
+    pf.add_transactions_manually(t_eth)
     # Swaps
     swaps = [
         {
@@ -364,8 +366,7 @@ if __name__ == "__main__":
             "Broker": "Uniswap",
         }
     ]
-    for swap in swaps:
-        pf.add_transaction_manually(swap)
+    pf.add_transactions_manually(swaps)
 
     # path_deposits = "exports/deposits_withdrawals"
     # for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
