@@ -10,27 +10,25 @@ class BrokerInterface:
         Args:
             columns: column names in the transactions df
         Properties set in subclasses:
+            broker: name of broker
             index_columns: column names used for the grouping of the data frame.
                 Values should correspond to ["Datetime", "Pair", "Side"] in this order
             agg_columns: column names used to aggregate values for the grouping
                 of the data frame. Values should correspond to ["Size", "Funds", "Fee"] in
                 this order
+            delimiter: delimiter used to seperate values in csv
         """
         self.columns = columns
 
-    def get_transactions(self, file_name: str):
-        pass
-
-    def _get_transactions(self, file_name: str, delimiter: str = ",") -> pd.DataFrame:
+    def get_transactions(self, file_name: str) -> pd.DataFrame:
         """
         Args:
             file_name: path to transaction csv
-            delimiter: delimiter used to seperate values in csv
         Return:
             df: dataframe with transactions
         """
         # Read
-        df = pd.read_csv(file_name, delimiter=delimiter)
+        df = pd.read_csv(file_name, delimiter=self.delimiter)
         df = self._preprocess(df)
         df[self.index_columns[1]] = df[self.index_columns[1]].str.replace("_", "-")
         df[self.index_columns[2]] = df[self.index_columns[2]].str.lower()

@@ -12,10 +12,7 @@ class KuCoinInterface(BrokerInterface):
         self.broker = "KuCoin"
         self.index_columns = ["tradeCreatedAt", "symbol", "side"]
         self.agg_columns = ["size", "funds", "fee"]
-
-    def get_transactions(self, file_name: str) -> pd.DataFrame:
-        df = self._get_transactions(file_name, ",")
-        return df
+        self.delimiter = ","
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         df.loc[df["side"] == "sell", "size"] *= -1

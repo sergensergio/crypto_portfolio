@@ -12,10 +12,7 @@ class MEXCInterface(BrokerInterface):
         self.broker = "MEXC"
         self.index_columns = ["Zeit", "Paare", "Seite"]
         self.agg_columns = ["Ausgeführter Betrag", "Gesamt", "Gebühr"]
-
-    def get_transactions(self, file_name: str) -> pd.DataFrame:
-        df = self._get_transactions(file_name, ";")
-        return df
+        self.delimiter = ";"
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         df.loc[df["Seite"] == "SELL", "Ausgeführter Betrag"] *= -1

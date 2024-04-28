@@ -12,10 +12,7 @@ class BisonInterface(BrokerInterface):
         self.broker = "Bison"
         self.index_columns = [" Date", "Pair", "TransactionType"]
         self.agg_columns = [" AssetAmount", " EurAmount", " Fee"]
-
-    def get_transactions(self, file_name: str) -> pd.DataFrame:
-        df = self._get_transactions(file_name, ";")
-        return df
+        self.delimiter = ";"
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         for c in df.columns:

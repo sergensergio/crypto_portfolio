@@ -12,10 +12,7 @@ class BitgetInterface(BrokerInterface):
         self.broker = "Bitget"
         self.index_columns = ["Date", "Trading pair", "Direction"]
         self.agg_columns = ["Amount", "Total", "Fee"]
-
-    def get_transactions(self, file_name: str) -> pd.DataFrame:
-        df = self._get_transactions(file_name, ",")
-        return df
+        self.delimiter = ","
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         df["Trading pair"] = df["Trading pair"].str.replace("_SPBL", "")
