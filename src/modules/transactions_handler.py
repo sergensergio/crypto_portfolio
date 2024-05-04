@@ -8,6 +8,8 @@ from .broker_interfaces import BisonInterface, BitvavoInterface, KuCoinInterface
 
 COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Broker"]
 DTYPES = ["object", "object", "object", "float", "float", "float", "object"]
+COLUMNS_W = ["Datetime", "Coin", "Chain", "Address", "TxHash", "Fee"]
+DTYPES_W = ["object", "object", "object", "object", "object", "float"]
 
 
 class TransactionsHandler:
@@ -18,7 +20,9 @@ class TransactionsHandler:
         self.transactions = pd.DataFrame(columns=COLUMNS)
         for c, d in zip(COLUMNS, DTYPES):
             self.transactions[c] = self.transactions[c].astype(d)
-        self.deposit_withdrawals = pd.DataFrame()
+        self.withdrawals = pd.DataFrame(columns=COLUMNS_W)
+        for c, d in zip(COLUMNS_W, DTYPES_W):
+            self.withdrawals[c] = self.withdrawals[c].astype(d)
         self.conversion_handler = ConversionHandler(cache_root)
         self.history_root = history_root
 
@@ -33,6 +37,18 @@ class TransactionsHandler:
         self.transactions.sort_values(by=["Datetime"] , inplace=True)
         self.transactions.drop_duplicates(subset=["Datetime", "Pair", "Side"], inplace=True)
         self.transactions.reset_index(drop=True, inplace=True)
+
+    def _extend_withdrawals_dataframe(self, df: pd.DataFrame):
+        """
+        Concats df to self.withdrawals
+        """
+        if self.withdrawals.empty:
+            self.withdrawals = df
+        else:
+            self.withdrawals = pd.concat((self.withdrawals, df))
+        self.withdrawals.sort_values(by=["Datetime"] , inplace=True)
+        self.withdrawals.drop_duplicates(subset=["Datetime", "Coin"], inplace=True)
+        self.withdrawals.reset_index(drop=True, inplace=True)
 
     def _prepare_dataframe_from_dict_list(self, d_l: List[Dict]) -> pd.DataFrame: 
         # Check dict keywords
@@ -54,26 +70,26 @@ class TransactionsHandler:
 
     def add_transactions_manually(self, transaction_dict: Dict):
         df = self._prepare_dataframe_from_dict_list(transaction_dict)
-        df = self._sanitize_df(df)
+        df = self._sanitize_df(df, COLUMNS, DTYPES)
         df = self._convert_transactions(df)
         self._extend_transactions_dataframe(df)
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
-            broker = MEXCInterface(COLUMNS)
+            broker = MEXCInterface(columns=COLUMNS)
         elif "kucoin" in file_path:
-            broker = KuCoinInterface(COLUMNS)
+            broker = KuCoinInterface(columns=COLUMNS)
         elif "bitvavo" in file_path:
-            broker = BitvavoInterface(COLUMNS)
+            broker = BitvavoInterface(columns=COLUMNS)
         elif "bison" in file_path:
-            broker = BisonInterface(COLUMNS)
+            broker = BisonInterface(columns=COLUMNS)
         elif "bitget" in file_path:
-            broker = BitgetInterface(COLUMNS)
+            broker = BitgetInterface(columns=COLUMNS)
         else:
             raise NotImplementedError(f"Broker not recognised: {file_path}")
     
         df = broker.get_transactions(file_path)
-        df = self._sanitize_df(df)
+        df = self._sanitize_df(df, COLUMNS, DTYPES)
         df = self._convert_transactions(df)
         self._extend_transactions_dataframe(df)
 
@@ -102,27 +118,29 @@ class TransactionsHandler:
 
         return df
 
-    def _sanitize_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df[COLUMNS]
-        for c in COLUMNS:
-            df[c] = df[c].astype(self.transactions[c].dtype)
+    def _sanitize_df(self, df: pd.DataFrame, columns: List[str], dtypes: List[str]) -> pd.DataFrame:
+        df = df[columns]
+        for c, d in zip(columns, dtypes):
+            df[c] = df[c].astype(d)
         return df
 
-    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
+    def add_withdrawals_from_csv(self, file_path: str) -> None:
         if "mexc" in file_path:
-            df = self._get_deposits_withdrawals_mexc(file_path)
+            broker = MEXCInterface()
         elif "kucoin" in file_path:
-            df = self._get_deposits_withdrawals_kucoin(file_path)
+            broker = KuCoinInterface()
         elif "bitvavo" in file_path:
-            df = self._get_deposits_withdrawals_bitvavo(file_path)
+            broker = BitvavoInterface()
         elif "bison" in file_path:
-            df = self._get_deposits_withdrawals_bison(file_path)
+            broker = BisonInterface()
         elif "bitget" in file_path:
-            df = self._get_deposits_withdrawals_bitget(file_path)
+            broker = BitgetInterface()
         else:
             raise NotImplementedError(f"Broker not recognised: {file_path}")
-
-        self._extend_transactions_dataframe(df)
+        
+        df = broker.get_withdrawals(file_path, COLUMNS_W)
+        df = self._sanitize_df(df, COLUMNS_W, DTYPES_W)
+        self._extend_withdrawals_dataframe(df)
 
     def _get_historical_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """

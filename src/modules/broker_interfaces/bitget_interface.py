@@ -7,8 +7,8 @@ from .broker_interface import BrokerInterface
 
 class BitgetInterface(BrokerInterface):
 
-    def __init__(self, columns: List[str]):
-        super().__init__(columns)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.broker = "Bitget"
         self.index_columns = ["Date", "Trading pair", "Direction"]
         self.agg_columns = ["Amount", "Total", "Fee"]
@@ -22,3 +22,6 @@ class BitgetInterface(BrokerInterface):
         df.loc[df["Direction"] == "Buy", "Total"] *= -1
         df["Fee"] = -df["Fee"] * df["Price"]
         return df
+
+    def get_withdrawals(self, file_path: str, columns: List[str]) -> List[str]:
+        return pd.DataFrame(columns=columns)

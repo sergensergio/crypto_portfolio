@@ -23,8 +23,8 @@ class Portfolio:
     def add_transactions_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_transactions_from_csv(file_path)
 
-    def add_deposits_withdrawals_from_csv(self, file_path: str) -> None:
-        self.transactions_handler.add_deposits_withdrawals_from_csv(file_path)
+    def add_withdrawals_from_csv(self, file_path: str) -> None:
+        self.transactions_handler.add_withdrawals_from_csv(file_path)
 
     def add_transactions_manually(self, transaction_list: List[Dict]):
         """
@@ -368,8 +368,8 @@ if __name__ == "__main__":
     ]
     pf.add_transactions_manually(swaps)
 
-    # path_deposits = "exports/deposits_withdrawals"
-    # for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
-    #     pf.add_deposits_withdrawals_from_csv(file_path=filename)
+    path_deposits = "exports/deposits_withdrawals"
+    for filename in glob.iglob(path_deposits + "/**/*.csv", recursive=True):
+        pf.add_withdrawals_from_csv(file_path=filename)
         
     pf.show_portfolio()
