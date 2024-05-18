@@ -37,6 +37,7 @@ class Portfolio:
             "Size": 0.02380119,
             "Funds": 1000,
             "Fee": 0,
+            "Fee currency": "EUR",
             "Broker": "Bison",
         }
         Format of the values should be according to the example.
@@ -147,6 +148,8 @@ class Portfolio:
         return pd.DataFrame(realized_profits)
 
     def show_portfolio(self):
+        # Add transactions from blockchain search to transactions
+        self.transactions_handler.add_blockchain_transactions()
         # Get transactions and split pair column
         df = self.transactions_handler.get_transactions_based_on_usd()
         index_columns = ["Symbol Buy", "Symbol Sell"]
@@ -179,8 +182,11 @@ class Portfolio:
         ):
             if symbol == "CHNG":
                 symbol = "XCHNG"
-            data = self.cmc_api_interface.get_data_for_symbol(symbol)
-            current_price = data["data"][symbol]["quote"]["USD"]["price"]
+            if symbol == "wCADAI":
+                current_price = 1
+            else:
+                data = self.cmc_api_interface.get_data_for_symbol(symbol)
+                current_price = data["data"][symbol]["quote"]["USD"]["price"]
             if symbol == "XCHNG":
                 symbol = "CHNG"
             profit_df.loc[symbol, "Current Price"] = current_price
@@ -305,6 +311,7 @@ if __name__ == "__main__":
         "Size": 0.02380119,
         "Funds": 1000,
         "Fee": 0,
+        "Fee currency": "EUR",
         "Broker": "Coinbase Pro",
     }
     t_eth = {
@@ -314,6 +321,7 @@ if __name__ == "__main__":
         "Size": 0.76384081,
         "Funds": 1000,
         "Fee": 0,
+        "Fee currency": "EUR",
         "Broker": "Coinbase Pro",
     }
     pf.add_transactions_manually(t_btc)
@@ -327,6 +335,7 @@ if __name__ == "__main__":
             "Size": 6486.648,
             "Funds": 0.008,
             "Fee": 0.001,
+            "Fee currency": "BNB",
             "Broker": "PancakeSwap",
         },
         {
@@ -336,6 +345,7 @@ if __name__ == "__main__":
             "Size": 4310655.395,
             "Funds": 4.772,
             "Fee": 0.001,
+            "Fee currency": "BNB",
             "Broker": "PancakeSwap",
         },
         {
@@ -345,26 +355,9 @@ if __name__ == "__main__":
             "Size": 34210.22,
             "Funds": 2800,
             "Fee": 0,
+            "Fee currency": "USDT",
             "Broker": "Chainge App",
         },
-        # {
-        #     "Datetime": "2024-02-23 17:53:00",
-        #     "Pair": "SOUTH-USDT",
-        #     "Side": "buy",
-        #     "Size": 49.12,
-        #     "Funds": 350,
-        #     "Fee": 50,
-        #     "Broker": "Uniswap",
-        # },
-        {
-            "Datetime": "2024-02-26 11:59:00",
-            "Pair": "TBANK-USDT",
-            "Side": "buy",
-            "Size": 608.058,
-            "Funds": 389.699,
-            "Fee": 50,
-            "Broker": "Uniswap",
-        }
     ]
     pf.add_transactions_manually(swaps)
 

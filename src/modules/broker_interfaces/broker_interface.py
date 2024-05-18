@@ -43,7 +43,8 @@ class BrokerInterface:
         df.sort_index(inplace=True)
         df.reset_index(inplace=True)
         df["Broker"] = self.broker
-        columns_reordered = self.index_columns + self.agg_columns + ["Broker"]
+        df["Fee currency"] = df[self.index_columns[1]].apply(lambda x: x.split("-")[1])
+        columns_reordered = self.index_columns + self.agg_columns + ["Fee currency", "Broker"]
         df = df[columns_reordered]
         df.columns = self.columns
 
