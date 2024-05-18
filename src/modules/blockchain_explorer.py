@@ -4,7 +4,10 @@ import json
 import pandas as pd
 
 from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union, Dict
 from collections import defaultdict
+from tqdm import tqdm
+from datetime import datetime
 from tqdm import tqdm
 from datetime import datetime
 
@@ -29,15 +32,19 @@ class BlockchainExplorer:
             os.makedirs(self.cache_path)
 
         self.blacklist = set()
+        self.blacklist = set()
         if os.path.exists(os.path.join(self.cache_path, BLACKLIST_FILE)):
             with open(os.path.join(self.cache_path, BLACKLIST_FILE), "r") as file:
                 lines = file.readlines()
             self.blacklist = set([line.strip() for line in lines])
+            self.blacklist = set([line.strip() for line in lines])
 
+        self.wallets = set()
         self.wallets = set()
         if os.path.exists(os.path.join(self.cache_path, WALLETS_FILE)):
             with open(os.path.join(self.cache_path, WALLETS_FILE), "r") as file:
                 lines = file.readlines()
+            self.wallets = set([line.strip() for line in lines])
             self.wallets = set([line.strip() for line in lines])
 
     def search_blockchain(self, addr_list: List[str]) -> List[str]:
@@ -53,6 +60,7 @@ class BlockchainExplorer:
         with open(os.path.join(self.cache_path, WALLETS_FILE), "w") as file:
             for a in self.wallets:
                 file.write(a + "\n")
+        return list(self.wallets)
         return list(self.wallets)
         
     def _search(self, addr: str):
@@ -75,6 +83,8 @@ class BlockchainExplorer:
         self.wallets.add(addr)
 
         for elem in res:
+            self._search(elem["from"])
+            self._search(elem["to"])
             self._search(elem["from"])
             self._search(elem["to"])
 
