@@ -23,5 +23,5 @@ class BitgetInterface(BrokerInterface):
         df["Fee"] = -df["Fee"] * df["Price"]
         return df
 
-    def get_withdrawals(self, file_path: str, columns: List[str]) -> List[str]:
+    def get_withdrawals(self, file_path: str, columns: List[str]) -> pd.DataFrame:
         return pd.DataFrame(columns=columns)

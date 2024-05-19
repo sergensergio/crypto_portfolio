@@ -27,7 +27,7 @@ class BisonInterface(BrokerInterface):
         df.loc[df["TransactionType"] == "Buy", " EurAmount"] *= -1
         return df
 
-    def get_withdrawals(self, file_path: str, columns: List[str]) -> List[str]:
+    def get_withdrawals(self, file_path: str, columns: List[str]) -> pd.DataFrame:
         df = pd.read_csv(file_path, delimiter=self.delimiter, encoding="latin1")
         for c in df.columns:
             if df[c].dtype == "object":

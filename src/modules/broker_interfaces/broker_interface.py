@@ -53,5 +53,5 @@ class BrokerInterface:
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         return df
 
-    def get_withdrawals(self, file_path: str, columns: List[str]) -> List[str]:
+    def get_withdrawals(self, file_path: str, columns: List[str]) -> pd.DataFrame:
         return pd.DataFrame(columns=columns)

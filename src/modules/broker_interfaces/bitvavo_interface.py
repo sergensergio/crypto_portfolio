@@ -20,7 +20,7 @@ class BitvavoInterface(BrokerInterface):
         df["Currency"] = df["Currency"] + "-EUR"
         return df
 
-    def get_withdrawals(self, file_path: str, columns: List[str]) -> List[str]:
+    def get_withdrawals(self, file_path: str, columns: List[str]) -> pd.DataFrame:
         df = pd.read_csv(file_path, delimiter=self.delimiter, encoding="latin1")
         df = df[df["Type"] == "withdrawal"]
         df["Datetime"] = df["Date"] + " " + df["Time"]

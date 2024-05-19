@@ -23,7 +23,7 @@ class KuCoinInterface(BrokerInterface):
         df = pd.read_csv(file_path, delimiter=self.delimiter, encoding="latin1")
         if "Wallet Address/Account" in df.columns:
             df.drop(columns=["Amount", "Type"], inplace=True)
-            df["Fee"] = None
+            df["Fee"] = 0.0
             df.columns = columns
             df["TxHash"] = None
             df["Chain"] = df["Chain"].apply(lambda x: x.split("(")[0]).str.upper()
