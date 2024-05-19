@@ -23,8 +23,9 @@ class MEXCInterface(BrokerInterface):
         df = pd.read_csv(file_path, delimiter=self.delimiter, encoding="latin1")
         if "Auszahlungsadresse" in df.columns:
             df[["Coin", "Chain"]] = df["Krypto"].str.split("-", expand=True)
+            df["Fee currency"] = df["Coin"]
             df.drop(columns=["Status", "Angeforderter Betrag", "Abrechnungsbetrag", "Auszahlungsbeschreibungen", "Krypto"], inplace=True)
-            df = df[df.columns[[0,4,5,1,2,3]]]
+            df = df[df.columns[[0,4,5,1,2,3,6]]]
             df.columns = columns
             return df
         else:

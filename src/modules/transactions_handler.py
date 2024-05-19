@@ -10,8 +10,8 @@ from .blockchain_explorer import BlockchainExplorer
 
 COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Fee currency", "Broker"]
 DTYPES = ["object", "object", "object", "float", "float", "float", "object", "object"]
-COLUMNS_W = ["Datetime", "Coin", "Chain", "Address", "TxHash", "Fee"]
-DTYPES_W = ["object", "object", "object", "object", "object", "float"]
+COLUMNS_W = ["Datetime", "Coin", "Chain", "Address", "TxHash", "Fee", "Fee currency"]
+DTYPES_W = ["object", "object", "object", "object", "object", "float", "object"]
 
 
 class TransactionsHandler:

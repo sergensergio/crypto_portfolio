@@ -35,8 +35,10 @@ class BisonInterface(BrokerInterface):
         df = df[df["TransactionType"] == "Withdraw"]
         df = df[df[" Currency"] == ""]
         df = df[df.columns[[7, 2, 0, 1, 3, 6]]]
+        df["Fee currency"] = df[" Asset"]
         df.columns = columns
         df["Coin"] = df["Coin"].str.upper()
+        df["Fee currency"] = df["Fee currency"].str.upper()
         df["Chain"] = None
         df["Address"] = None
         df["TxHash"] = None

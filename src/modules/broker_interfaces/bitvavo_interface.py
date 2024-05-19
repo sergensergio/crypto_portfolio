@@ -24,7 +24,7 @@ class BitvavoInterface(BrokerInterface):
         df = pd.read_csv(file_path, delimiter=self.delimiter, encoding="latin1")
         df = df[df["Type"] == "withdrawal"]
         df["Datetime"] = df["Date"] + " " + df["Time"]
-        df = df[["Datetime", "Currency", "Timezone", "Address", "Status", "Fee amount"]]
+        df = df[["Datetime", "Currency", "Timezone", "Address", "Status", "Fee amount", "Fee currency"]]
         df.columns = columns
         df["TxHash"] = None
         df["Chain"] = None
