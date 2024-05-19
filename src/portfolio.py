@@ -58,6 +58,8 @@ class Portfolio:
         # i.e. the cumultative sum of the sizes of the orders
         df["Price"] = -df["Funds"] / df["Size"]
         df["Total Size"] = df.groupby(["Symbol Buy"])["Size"].cumsum()
+        # Remove dummy rows
+        df = df[df["Broker"] != "Chain"]
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
         df.sort_index(inplace=True)
 
@@ -156,6 +158,20 @@ class Portfolio:
         df[index_columns] = df["Pair"].str.split("-", expand=True)
         df.drop(columns="Pair", inplace=True)
 
+        # Add crypto fees as dummy transactions to account for total size inside portfolio
+        fees = self.transactions_handler.withdrawals.drop(columns=["TxHash", "Address", "Chain", "Coin"])
+        fees = fees[fees["Fee"] > 0]
+        fees["Side"] = "sell"
+        fees["Size"] = -fees["Fee"]
+        fees["Symbol Buy"] = fees["Fee currency"]
+        fees["Symbol Sell"] = "USD"
+        fees["Funds"] = 0.0
+        fees["Fee"] = 0.0
+        fees["Fee currency"] = "USD"
+        fees["Broker"] = "Chain"
+        fees = fees[df.columns]
+        df = pd.concat((df, fees))
+
         # Create profit dataframe
         # All buy order funds
         profit_df = df[df["Side"] == "buy"].groupby("Symbol Buy").agg({"Funds": "sum"})
@@ -217,6 +233,7 @@ class Portfolio:
         pf_df = pf_df[~pf_df["Fully Sold"]]
         pf_df = pf_df[pf_df["Current Value"] > 50]
         self.plot_portfolio_pie(pf_df)
+        self.plot_portfolio_size(pf_df)
         self.plot_bar_x(pf_df, "x current")
 
         # Realized profits
@@ -226,6 +243,7 @@ class Portfolio:
         # Fees per Broker
         fees_df = self.transactions_handler.get_fees_per_broker()
         fees_df.sort_values("% Fee/Funds", inplace=True)
+        plt.figure()
         fees_df["% Fee/Funds"].plot(kind="bar")
         plt.title('Fees per Broker in %', fontsize=15)
         plt.xlabel('Broker', fontsize=14)
@@ -275,6 +293,34 @@ class Portfolio:
         axes[1].set_title("Other")
         fig.suptitle("Portfolio Value Distribution (in USD)")
 
+    def plot_portfolio_size(self, pf_df: pd.DataFrame) -> None:
+        # Current portfolio with size held
+        def custom_format(val):
+            if isinstance(val, str):  # If the value is a string, return as is
+                return val
+            elif abs(val) < 10:  # For very small values
+                return f"{val:,.4f}"
+            else:  # For other values
+                return f"{val:,.0f}"
+        h = len(pf_df) * 0.25
+        w = 3 * 2
+        fig, ax = plt.subplots(figsize=(w, h))
+        ax.axis('tight')
+        ax.axis('off')
+        df_formatted = pf_df.map(custom_format).iloc[::-1]
+        df_formatted = df_formatted[["Symbol Buy", "Size", "Current Value"]]
+        df_formatted["Current Value"] = df_formatted["Current Value"] + " $"
+        table = ax.table(
+            cellText=df_formatted.values,
+            colLabels=df_formatted.columns,
+            cellLoc='right',
+            loc='center'
+        )
+        for key, cell in table.get_celld().items():
+            cell.set_height(0.05)
+            if key[0] == 0:
+                cell.set_text_props(fontweight='bold')
+
     def plot_bar_x(self, pf_df: pd.DataFrame, col: str) -> None:
         # Plot current x values
         df_bar = pf_df.set_index("Symbol Buy")[col].sort_values()
@@ -296,7 +342,6 @@ class Portfolio:
         plt.axvline(x=1, color="r", linestyle="--", label="1x")
         plt.xlim(0, df_bar.max() + 1.5)
         plt.title((" ".join(col.split(" ")[::-1])).capitalize() + " on assets")
-        plt.show()
 
 if __name__ == "__main__":
     path_txs = "exports/transactions"
