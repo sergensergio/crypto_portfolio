@@ -61,7 +61,7 @@ class Portfolio:
         # Remove dummy rows
         df = df[df["Broker"] != "Chain"]
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
-        df.sort_index(inplace=True)
+        df = df.sort_index()
 
         realized_profits = []
 
