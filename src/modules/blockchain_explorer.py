@@ -120,7 +120,7 @@ class BlockchainExplorer:
         df_w_a = pd.DataFrame(columns=columns_w)
         for g in grouped_tx.values():
             if len(g) < 2:
-                if all([a in self.wallets for a in [g[0]["from"], g[0]["to"]]]):
+                if g[0]["from"] in self.wallets:
                     df_w_t = self._process_transfer(g[0], addr)
                     if df_w_a.empty:
                         df_w_a = df_w_t
@@ -200,9 +200,3 @@ class BlockchainExplorer:
         response = requests.get(req)
         response = json.loads(response.text)
         return response["result"], int(response["status"])
-
-if __name__ == "__main__":
-    explorer = BlockchainExplorer()
-    addr = ""
-    addr_list = explorer.search_blockchain(addr)
-    test = explorer.get_transactions_for_address(addr)

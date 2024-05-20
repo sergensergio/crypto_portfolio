@@ -269,8 +269,8 @@ class Portfolio:
         pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
         total_value = pf_df["Current Value"].sum()
         pf_df["Ratio value"] = pf_df["Sum Value"] / total_value
-        large_df = pf_df[pf_df["Ratio value"] >= 1/8]
-        other_df = pf_df[pf_df["Ratio value"] < 1/8]
+        large_df = pf_df[pf_df["Ratio value"] >= 1/6]
+        other_df = pf_df[pf_df["Ratio value"] < 1/6]
         other_row = other_df.sum()
         other_row["Symbol Buy"] = "Other"
         large_df = pd.concat((other_row.to_frame().T, large_df))
@@ -279,7 +279,7 @@ class Portfolio:
         axes[0].pie(
             large_df["Current Value"],
             labels=large_df["Symbol Buy"],
-            autopct=lambda pct: "{:d}".format(int(pct*large_df["Current Value"].sum()/100)),
+            autopct=lambda pct: f"{(((pct/100)*large_df['Current Value'].sum())/1000):.1f}k",
             startangle=90,
             pctdistance=0.8
         )
@@ -287,7 +287,7 @@ class Portfolio:
         axes[1].pie(
             other_df["Current Value"],
             labels=other_df["Symbol Buy"],
-            autopct=lambda pct: "{:d}".format(int(pct*other_df["Current Value"].sum()/100)),
+            autopct=lambda pct: f"{(((pct/100)*other_df['Current Value'].sum())/1000):.1f}k",
             startangle=90,
             pctdistance=0.8
         )
@@ -350,28 +350,83 @@ if __name__ == "__main__":
     for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
         pf.add_transactions_from_csv(file_path=filename)
     
-    t_btc = {
-        "Datetime": "2021-02-25 20:06:29",
-        "Pair": "BTC-EUR",
-        "Side": "buy",
-        "Size": 0.02380119,
-        "Funds": 1000,
-        "Fee": 0,
-        "Fee currency": "EUR",
-        "Broker": "Coinbase Pro",
-    }
-    t_eth = {
-        "Datetime": "2021-02-25 21:22:55",
-        "Pair": "ETH-EUR",
-        "Side": "buy",
-        "Size": 0.76384081,
-        "Funds": 1000,
-        "Fee": 0,
-        "Fee currency": "EUR",
-        "Broker": "Coinbase Pro",
-    }
-    pf.add_transactions_manually(t_btc)
-    pf.add_transactions_manually(t_eth)
+    txs = [
+        {
+            "Datetime": "2021-02-25 20:06:29",
+            "Pair": "BTC-EUR",
+            "Side": "buy",
+            "Size": 0.02380119,
+            "Funds": 1000,
+            "Fee": 0,
+            "Fee currency": "EUR",
+            "Broker": "Coinbase Pro",
+        },
+        {
+            "Datetime": "2021-02-25 21:22:55",
+            "Pair": "ETH-EUR",
+            "Side": "buy",
+            "Size": 0.76384081,
+            "Funds": 1000,
+            "Fee": 0,
+            "Fee currency": "EUR",
+            "Broker": "Coinbase Pro",
+        },
+        {
+            "Datetime": "2024-04-10 13:53:05",
+            "Pair": "USDT-EUR",
+            "Side": "buy",
+            "Size": 2170,
+            "Funds": -1999.872000,
+            "Fee": 2.17,
+            "Fee currency": "USDT",
+            "Broker": "Bitget",
+        }
+    ]
+    trades = [
+        {
+            "Datetime": "2024-04-10 13:59:47",
+            "Pair": "OP-USDT",
+            "Side": "buy",
+            "Size": 354.9,
+            "Funds": -354.9 * (3.0126+3.0115)/2,
+            "Fee": 0.6414707,
+            "Fee currency": "USDT",
+            "Broker": "Bitget",
+        },
+        {
+            "Datetime": "2024-04-10 14:03:15",
+            "Pair": "XAI-USDT",
+            "Side": "buy",
+            "Size": 1062,
+            "Funds": -1062 * 1.0229,
+            "Fee": 0.6517548,
+            "Fee currency": "USDT",
+            "Broker": "Bitget",
+        },
+        {
+            "Datetime": "2024-04-22 02:35:47",
+            "Pair": "OP-USDT",
+            "Side": "sell",
+            "Size": -354.9,
+            "Funds": 354.9 * 2.44,
+            "Fee": 0.229116,
+            "Fee currency": "USDT",
+            "Broker": "Bitget",
+        },
+        {
+            "Datetime": "2024-04-22 02:36:04",
+            "Pair": "XAI-USDT",
+            "Side": "sell",
+            "Size": -1062,
+            "Funds": 1062 * 0.76,
+            "Fee": 0.48430692,
+            "Fee currency": "USDT",
+            "Broker": "Bitget",
+        },
+    ]
+    pf.add_transactions_manually(txs)
+    pf.add_transactions_manually(trades)
+
     # Swaps
     swaps = [
         {
@@ -403,6 +458,36 @@ if __name__ == "__main__":
             "Fee": 0,
             "Fee currency": "USDT",
             "Broker": "Chainge App",
+        },
+        {
+            "Datetime": "2024-03-16 10:53:59",
+            "Pair": "WETH-USDT",
+            "Side": "buy",
+            "Size": 0.354733899587312852,
+            "Funds": -1321.763966,
+            "Fee": 0.006329632144952564,
+            "Fee currency": "ETH",
+            "Broker": "Uniswap",
+        },
+        {
+            "Datetime": "2024-03-16 10:56:35",
+            "Pair": "SOUTH-WETH",
+            "Side": "buy",
+            "Size": 77.458346295975289318,
+            "Funds": -0.216,
+            "Fee": 0.004939344011454846,
+            "Fee currency": "ETH",
+            "Broker": "Uniswap",
+        },
+        {
+            "Datetime": "2024-03-16 10:57:59",
+            "Pair": "TBANK-WETH",
+            "Side": "buy",
+            "Size": 430.867432058272424982,
+            "Funds": -0.135,
+            "Fee": 0.003334170916421401,
+            "Fee currency": "ETH",
+            "Broker": "Uniswap",
         },
     ]
     pf.add_transactions_manually(swaps)
