@@ -264,7 +264,7 @@ class Portfolio:
         Plots pie chart for the current value of the assets in the portfolio.
         Small positions are plotted in a separate pie
         """
-        
+
         pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
         total_value = pf_df["Current Value"].sum()
         pf_df["Ratio value"] = pf_df["Sum Value"] / total_value

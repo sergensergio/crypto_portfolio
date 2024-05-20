@@ -24,4 +24,12 @@ class BitgetInterface(BrokerInterface):
         return df
 
     def get_withdrawals(self, file_path: str, columns: List[str]) -> pd.DataFrame:
-        return pd.DataFrame(columns=columns)
+        df = pd.read_csv(file_path, delimiter=self.delimiter)
+        df = df[df["Type"] == "Ordinary Withdrawal"]
+        df["Chain"] = None
+        df["Address"] = None
+        df["TxHash"] = None
+        df["Fee currency"] = df["Coin"]
+        df = df[df.columns[[0,1,7,8,9,4,10]]]
+        df.columns = columns
+        return df
