@@ -73,9 +73,9 @@ class CMCApiInterface:
         
         return new_data
 
-    def get_data_for_symbol(self, symbol: str) -> Dict:
+    def get_price_for_symbol(self, symbol: str) -> Dict:
         """
-        Returns Coinmarketcap API response for a cryptocurrency as dict.
+        Returns price from Coinmarketcap API response for a cryptocurrency.
         Saves data in cache to reduce API calls. If the data has been
         fetched today already the cached data is returned.
 
@@ -85,8 +85,8 @@ class CMCApiInterface:
 
         data = self._get_data_from_cache(symbol)
         if data:
-            return data
+            return data["data"][symbol]["quote"]["USD"]["price"]
 
         new_data = self._get_data_from_api(symbol)
         
-        return new_data
+        return new_data["data"][symbol]["quote"]["USD"]["price"]

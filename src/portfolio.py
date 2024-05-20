@@ -201,8 +201,7 @@ class Portfolio:
             if symbol == "wCADAI":
                 current_price = 1
             else:
-                data = self.cmc_api_interface.get_data_for_symbol(symbol)
-                current_price = data["data"][symbol]["quote"]["USD"]["price"]
+                current_price = self.cmc_api_interface.get_price_for_symbol(symbol)
             if symbol == "XCHNG":
                 symbol = "CHNG"
             profit_df.loc[symbol, "Current Price"] = current_price
@@ -255,6 +254,8 @@ class Portfolio:
     def print_key_info(self, profit_df: pd.DataFrame) -> None:
         print(f"Total invested money: {abs(profit_df['Left Funds'].sum()):,.0f}$")
         print(f"Total portfolio value: {profit_df['Current Value'].sum():,.0f}$")
+        print(f"Sum of realized profits: {profit_df[profit_df['Profit/Loss'] > 0]['Profit/Loss'].sum():,.0f}$")
+        print(f"Sum of realized losses: {profit_df[profit_df['Profit/Loss'] < 0]['Profit/Loss'].sum():,.0f}$")
         print(f"Sum of realized profits and losses: {profit_df['Profit/Loss'].sum():,.0f}$, to be taxed: {profit_df['To be taxed'].sum():,.0f}$")
         print(f"Total portfolio profit/loss: {(profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()):,.0f}$")
         print(f"Total x: {profit_df['Current Value'].sum() / abs(profit_df['Left Funds'].sum()):.1f}x")

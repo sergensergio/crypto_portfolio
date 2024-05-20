@@ -103,7 +103,6 @@ class TransactionsHandler:
         if not df["Pair"].str.contains("EUR").any():
             return df
         # Get conversion data to convert from EUR to USD
-        print("Loading conversion rates...")
         from_curr = "EUR"
         to_curr = "USD"
         self.conversion_handler.load_conversion_dict(from_curr, to_curr)
