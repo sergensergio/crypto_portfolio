@@ -9,5 +9,9 @@ other
 cache
 historical_data
 api_keys
+<<<<<<< HEAD
 csv
 figures
+=======
+csv
+>>>>>>> 5489e9e (get txs)
