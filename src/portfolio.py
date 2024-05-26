@@ -59,7 +59,7 @@ class Portfolio:
         df["Price"] = -df["Funds"] / df["Size"]
         df["Total Size"] = df.groupby(["Symbol Buy"])["Size"].cumsum()
         # Remove dummy rows
-        df = df[df["Broker"] != "Chain"]
+        df = df[df["Broker"] != "Dummy"]
         df.set_index(["Symbol Buy", "Side", "Datetime"], inplace=True)
         df = df.sort_index()
 
@@ -168,7 +168,7 @@ class Portfolio:
         fees["Funds"] = 0.0
         fees["Fee"] = 0.0
         fees["Fee currency"] = "USD"
-        fees["Broker"] = "Chain"
+        fees["Broker"] = "Dummy"
         fees = fees[df.columns]
         df = pd.concat((df, fees))
 
