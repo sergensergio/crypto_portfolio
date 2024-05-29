@@ -3,8 +3,6 @@ __pycache__
 
 ideas.txt
 
-transactions.py
-
 .vscode
 exports
 other
@@ -12,3 +10,4 @@ cache
 historical_data
 api_keys
 csv
+figures

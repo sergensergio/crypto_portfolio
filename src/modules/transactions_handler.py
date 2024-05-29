@@ -107,7 +107,7 @@ class TransactionsHandler:
         to_curr = "USD"
         self.conversion_handler.load_conversion_dict(from_curr, to_curr)
 
-        df["Conversion"] = df["Datetime"].apply(
+        df["Conversion"] = df.loc[df["Pair"].str.contains("EUR"), "Datetime"].apply(
             lambda str_timestamp: self.conversion_handler.get_conversion_rate(
                 from_curr,
                 to_curr,
@@ -182,6 +182,9 @@ class TransactionsHandler:
             Use sell symbol to determine price in USD
         Purchase of coins with USDT are also considered a swap.
         """
+        if self.transactions["Pair"].apply(lambda x: x.split('-')[1] == "USD").all() and \
+            (self.transactions["Fee currency"] == "USD").all():
+            return self.transactions
         df_swaps_org, df_hist = self._get_historical_data()
 
         # Additional transactions

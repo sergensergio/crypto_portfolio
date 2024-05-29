@@ -1,3 +1,4 @@
+import os
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,9 +17,14 @@ class Portfolio:
         cache_root: str = "cache",
         history_root: str = "historical_data",
         api_key_root: str = "api_keys",
+        fig_path: str = "figures"
     ) -> None:
         self.transactions_handler = TransactionsHandler(cache_root, history_root)
         self.cmc_api_interface = CMCApiInterface(cache_root, api_key_root)
+        dt = datetime.strftime(datetime.now(), "%Y_%m_%d")
+        self.fig_path = os.path.join(fig_path, dt)
+        if not os.path.exists(self.fig_path):
+            os.makedirs(self.fig_path)
 
     def add_transactions_from_csv(self, file_path: str) -> None:
         self.transactions_handler.add_transactions_from_csv(file_path)
@@ -249,6 +255,7 @@ class Portfolio:
         plt.ylabel('Fee [%]', fontsize=14)
         plt.xticks(rotation=45)
         plt.subplots_adjust(bottom=0.25)
+        plt.savefig(os.path.join(self.fig_path, "fees.png"))
         plt.show()
 
     def print_key_info(self, profit_df: pd.DataFrame) -> None:
@@ -256,7 +263,7 @@ class Portfolio:
         print(f"Total portfolio value: {profit_df['Current Value'].sum():,.0f}$")
         print(f"Sum of realized profits: {profit_df[profit_df['Profit/Loss'] > 0]['Profit/Loss'].sum():,.0f}$")
         print(f"Sum of realized losses: {profit_df[profit_df['Profit/Loss'] < 0]['Profit/Loss'].sum():,.0f}$")
-        print(f"Sum of realized profits and losses: {profit_df['Profit/Loss'].sum():,.0f}$, to be taxed: {profit_df['To be taxed'].sum():,.0f}$")
+        print(f"Sum of realized profits and losses: {profit_df['Profit/Loss'].sum():,.0f}$, to be taxed: {max(0, profit_df['To be taxed'].sum()):,.0f}$")
         print(f"Total portfolio profit/loss: {(profit_df['Left Funds'].sum() + profit_df['Current Value'].sum()):,.0f}$")
         print(f"Total x: {profit_df['Current Value'].sum() / abs(profit_df['Left Funds'].sum()):.1f}x")
 
@@ -293,6 +300,7 @@ class Portfolio:
         )
         axes[1].set_title("Other")
         fig.suptitle("Portfolio Value Distribution (in USD)")
+        plt.savefig(os.path.join(self.fig_path, "pie.png"))
 
     def plot_portfolio_size(self, pf_df: pd.DataFrame) -> None:
         # Current portfolio with size held
@@ -303,7 +311,7 @@ class Portfolio:
                 return f"{val:,.4f}"
             else:  # For other values
                 return f"{val:,.0f}"
-        h = len(pf_df) * 0.25
+        h = len(pf_df) * 0.5
         w = 3 * 2
         fig, ax = plt.subplots(figsize=(w, h))
         ax.axis('tight')
@@ -321,6 +329,7 @@ class Portfolio:
             cell.set_height(0.05)
             if key[0] == 0:
                 cell.set_text_props(fontweight='bold')
+        plt.savefig(os.path.join(self.fig_path, "table.png"))
 
     def plot_bar_x(self, pf_df: pd.DataFrame, col: str) -> None:
         # Plot current x values
@@ -343,6 +352,7 @@ class Portfolio:
         plt.axvline(x=1, color="r", linestyle="--", label="1x")
         plt.xlim(0, df_bar.max() + 1.5)
         plt.title((" ".join(col.split(" ")[::-1])).capitalize() + " on assets")
+        plt.savefig(os.path.join(self.fig_path, f"{col.replace(' ', '_')}.png"))
 
 if __name__ == "__main__":
     path_txs = "exports/transactions"
