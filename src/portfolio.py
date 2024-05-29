@@ -1,4 +1,5 @@
 import os
+import argparse
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -21,8 +22,7 @@ class Portfolio:
     ) -> None:
         self.transactions_handler = TransactionsHandler(cache_root, history_root)
         self.cmc_api_interface = CMCApiInterface(cache_root, api_key_root)
-        dt = datetime.strftime(datetime.now(), "%Y_%m_%d")
-        self.fig_path = os.path.join(fig_path, dt)
+        self.fig_path = fig_path
         if not os.path.exists(self.fig_path):
             os.makedirs(self.fig_path)
 
@@ -237,13 +237,13 @@ class Portfolio:
         pf_df = profit_df.sort_values("Current Value")
         pf_df = pf_df[~pf_df["Fully Sold"]]
         pf_df = pf_df[pf_df["Current Value"] > 50]
-        self.plot_portfolio_pie(pf_df)
-        self.plot_portfolio_size(pf_df)
-        self.plot_bar_x(pf_df, "x current")
+        self.plot_portfolio_pie(pf_df.copy())
+        self.plot_portfolio_size(pf_df.copy())
+        self.plot_bar_x(pf_df.copy(), "x current")
 
         # Realized profits
         pl_df = profit_df[abs(profit_df["Funds paid"]) > 0]
-        self.plot_bar_x(pl_df, "x realized")
+        self.plot_bar_x(pl_df.copy(), "x realized")
 
         # Fees per Broker
         fees_df = self.transactions_handler.get_fees_per_broker()
@@ -270,9 +270,26 @@ class Portfolio:
     def plot_portfolio_pie(self, pf_df: pd.DataFrame) -> None:
         """
         Plots pie chart for the current value of the assets in the portfolio.
-        Small positions are plotted in a separate pie
+        Small positions in a large portfolio are plotted in a separate pie
         """
+        if len(pf_df) > 10:
+            self.plot_two_pies(pf_df)
+        else:
+            self.plot_one_pie(pf_df)
 
+    def plot_one_pie(self, pf_df: pd.DataFrame) -> None:
+        plt.figure(figsize=(6, 5))
+        plt.pie(
+            pf_df["Current Value"],
+            labels=pf_df["Symbol Buy"],
+            autopct=lambda pct: f"{(((pct/100)*pf_df['Current Value'].sum())/1000):.1f}k",
+            startangle=90,
+            pctdistance=0.8
+        )
+        plt.title("Portfolio Value Distribution (in USD)")
+        plt.savefig(os.path.join(self.fig_path, "pie.png"))
+
+    def plot_two_pies(self, pf_df: pd.DataFrame) -> None:
         pf_df["Sum Value"] = pf_df["Current Value"].cumsum()
         total_value = pf_df["Current Value"].sum()
         pf_df["Ratio value"] = pf_df["Sum Value"] / total_value
@@ -303,7 +320,7 @@ class Portfolio:
         plt.savefig(os.path.join(self.fig_path, "pie.png"))
 
     def plot_portfolio_size(self, pf_df: pd.DataFrame) -> None:
-        # Current portfolio with size held
+        # Biggest 5 positions with size held
         def custom_format(val):
             if isinstance(val, str):  # If the value is a string, return as is
                 return val
@@ -311,13 +328,16 @@ class Portfolio:
                 return f"{val:,.4f}"
             else:  # For other values
                 return f"{val:,.0f}"
-        h = len(pf_df) * 0.5
-        w = 3 * 2
+        h = 4
+        w = 8
         fig, ax = plt.subplots(figsize=(w, h))
-        ax.axis('tight')
         ax.axis('off')
-        df_formatted = pf_df.map(custom_format).iloc[::-1]
-        df_formatted = df_formatted[["Symbol Buy", "Size", "Current Value"]]
+        pf_df[["Size", "Current Value"]] = pf_df[["Size", "Current Value"]].map(custom_format)
+        df_formatted = pf_df.iloc[::-1][:5]
+        df_formatted = df_formatted[["Symbol Buy", "Size", "Current Value", "% current"]]
+        df_formatted["% current"] = df_formatted["% current"].apply(
+            lambda x: f"+ {x:.2f}%" if x > 0 else f"- {abs(x):.2f}%"
+        )
         df_formatted["Current Value"] = df_formatted["Current Value"] + " $"
         table = ax.table(
             cellText=df_formatted.values,
@@ -326,7 +346,7 @@ class Portfolio:
             loc='center'
         )
         for key, cell in table.get_celld().items():
-            cell.set_height(0.05)
+            cell.set_height(0.1)
             if key[0] == 0:
                 cell.set_text_props(fontweight='bold')
         plt.savefig(os.path.join(self.fig_path, "table.png"))
@@ -354,12 +374,12 @@ class Portfolio:
         plt.title((" ".join(col.split(" ")[::-1])).capitalize() + " on assets")
         plt.savefig(os.path.join(self.fig_path, f"{col.replace(' ', '_')}.png"))
 
-if __name__ == "__main__":
-    path_txs = "exports/transactions"
+
+def personal_portfolio(pf: Portfolio, path_tx: str, path_w: str) -> None:
     pf = Portfolio()
-    for filename in glob.iglob(path_txs + "/**/*.csv", recursive=True):
+    for filename in glob.iglob(path_tx + "/**/*.csv", recursive=True):
         pf.add_transactions_from_csv(file_path=filename)
-    
+
     txs = [
         {
             "Datetime": "2021-02-25 20:06:29",
@@ -502,8 +522,73 @@ if __name__ == "__main__":
     ]
     pf.add_transactions_manually(swaps)
 
-    path_deposits = "exports/deposits_withdrawals"
-    for filename in glob.iglob(path_deposits + "/**/*.csv", recursive=True):
+    for filename in glob.iglob(path_w + "/**/*.csv", recursive=True):
         pf.add_withdrawals_from_csv(file_path=filename)
         
     pf.show_portfolio()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Crypto Portfolio")
+    parser.add_argument(
+        "--path_tx",
+        type=str,
+        default="exports/transactions",
+        help="Path to parent directory of transaction exports of brokers"
+    )
+    parser.add_argument(
+        "--path_w",
+        type=str,
+        default="exports/deposits_withdrawals",
+        help="Path to parent directory of withdrawal exports of brokers"
+    )
+    parser.add_argument(
+        "--cache_root",
+        type=str,
+        default="cache",
+        help="Path to cache dir"
+    )
+    parser.add_argument(
+        "--history_root",
+        type=str,
+        default="historical_data",
+        help="Path to dir with historical data"
+    )
+    parser.add_argument(
+        "--api_key_root",
+        type=str,
+        default="api_keys",
+        help="Path to parent directory api keys"
+    )
+    parser.add_argument(
+        "--fig_path",
+        type=str,
+        default="figures",
+        help="Path to save dir of figures"
+    )
+    parser.add_argument(
+        "--demo",
+        action=argparse.BooleanOptionalAction, 
+        help="Use demo transactions"
+    )
+    args = parser.parse_args()
+
+    if args.demo:
+        fig_path = "demo"
+    else:
+        dt = datetime.strftime(datetime.now(), "%Y_%m_%d")
+        fig_path = os.path.join(args.fig_path, dt)
+
+    pf = Portfolio(
+        args.cache_root,
+        args.history_root,
+        args.api_key_root,
+        fig_path
+    )
+
+    if args.demo:
+        df = pd.read_csv("demo/demo_txs.csv", delimiter=",").drop(columns="Unnamed: 0")
+        pf.transactions_handler.transactions = df
+        pf.show_portfolio()
+    else:
+        personal_portfolio(pf, args.path_tx, args.path_w)

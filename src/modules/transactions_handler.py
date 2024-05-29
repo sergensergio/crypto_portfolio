@@ -184,7 +184,7 @@ class TransactionsHandler:
         """
         if self.transactions["Pair"].apply(lambda x: x.split('-')[1] == "USD").all() and \
             (self.transactions["Fee currency"] == "USD").all():
-            return self.transactions
+            return self.transactions.copy()
         df_swaps_org, df_hist = self._get_historical_data()
 
         # Additional transactions
@@ -240,25 +240,29 @@ class TransactionsHandler:
         """
         Returns fees per broker in USD.
         """
-        df_no_usd, df_hist = self._get_historical_data()
+        if self.transactions["Pair"].apply(lambda x: x.split('-')[1] == "USD").all() and \
+            (self.transactions["Fee currency"] == "USD").all():
+            df_no_usd = pd.DataFrame()
+        else:
+            df_no_usd, df_hist = self._get_historical_data()
 
-        # Prepare merge
-        df_no_usd["day"] = df_no_usd["Datetime"].str[:10]
-        df_no_usd["sym"] = df_no_usd["Pair"].apply(lambda x: x.split('-')[1])
+            # Prepare merge
+            df_no_usd["day"] = df_no_usd["Datetime"].str[:10]
+            df_no_usd["sym"] = df_no_usd["Pair"].apply(lambda x: x.split('-')[1])
 
-        # Match historical data to rows from the additional transactions and keep index
-        df_no_usd = df_no_usd.reset_index().merge(df_hist, on=["day", "sym"], how="left").set_index("index")
+            # Match historical data to rows from the additional transactions and keep index
+            df_no_usd = df_no_usd.reset_index().merge(df_hist, on=["day", "sym"], how="left").set_index("index")
 
-        # Rename sym column and match again for the fees
-        df_no_usd.rename(columns={"sym": "sym_pair"}, inplace=True)
-        df_no_usd["sym"] = df_no_usd["Fee currency"]
-        df_no_usd = df_no_usd.reset_index().merge(df_hist, on=["day", "sym"], how="left", suffixes=(None, "_fee")).set_index("index")
+            # Rename sym column and match again for the fees
+            df_no_usd.rename(columns={"sym": "sym_pair"}, inplace=True)
+            df_no_usd["sym"] = df_no_usd["Fee currency"]
+            df_no_usd = df_no_usd.reset_index().merge(df_hist, on=["day", "sym"], how="left", suffixes=(None, "_fee")).set_index("index")
 
-        # Convert to usd
-        df_no_usd["price USD"] = (df_no_usd["open"] + df_no_usd["close"]) / 2
-        df_no_usd["price USD fee"] = (df_no_usd["open_fee"] + df_no_usd["close_fee"]) / 2
-        df_no_usd["Funds"] *= df_no_usd["price USD"]
-        df_no_usd["Fee"] *= df_no_usd["price USD fee"]
+            # Convert to usd
+            df_no_usd["price USD"] = (df_no_usd["open"] + df_no_usd["close"]) / 2
+            df_no_usd["price USD fee"] = (df_no_usd["open_fee"] + df_no_usd["close_fee"]) / 2
+            df_no_usd["Funds"] *= df_no_usd["price USD"]
+            df_no_usd["Fee"] *= df_no_usd["price USD fee"]
         
         # Put in full df
         df = self.transactions.copy()
@@ -273,6 +277,8 @@ class TransactionsHandler:
     def add_blockchain_transactions(self) -> pd.DataFrame:
         addr_list = self.withdrawals["Address"].values.tolist()
         addr_list = list(set([addr for addr in addr_list if addr]))
+        if not addr_list:
+            return
         wallets = self.blockchain_explorer.search_blockchain(addr_list)
         df_tx, df_w = self.blockchain_explorer.get_transactions_and_withdrawals_for_address_list(wallets, COLUMNS, COLUMNS_W)
         df_tx = self._sanitize_df(df_tx, COLUMNS, DTYPES)
