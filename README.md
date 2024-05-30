@@ -9,7 +9,7 @@ and more...
 
 Also, it is possible to add withdrawal exports. If any addresses found, further transactions can be searched by looking at on-chain data. The found swaps and will be added to the list of transactions.
 
-An example output looks as follows:
+An example output looks as follows (based on randomly generated transactions by ChatGPT):
 
 ```console
 Total invested money: 7,460$
