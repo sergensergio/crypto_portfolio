@@ -133,7 +133,8 @@ class BlockchainExplorer:
             elif func in ["execute", "swap"]:
                 df_tx_row, df_w_row = self._process_swap(tx, addr)
             else:
-                raise NotImplementedError(f"Blockchain function not recognised: {func}")
+                # TODO: Submit withdrawal staked
+                print(f"Warning: Blockchain function not recognised: {func}. Skipping tx")
             self.tx_hashes.append(tx["hash"])
 
             if func in ["", "approve", "transfer"]:
@@ -340,6 +341,11 @@ class BlockchainExplorer:
         df_chain = pd.DataFrame(chain)
  
         df_swaps, df_fees = self._process_logs(df_chain, tx, addr)
+        df_fee_eth = self._process_eth_tx(tx)
+        if df_fees.empty:
+            df_fees = df_fee_eth
+        else:
+            df_fees = pd.concat((df_fees, df_fee_eth))
 
         return df_swaps, df_fees
 
