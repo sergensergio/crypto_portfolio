@@ -164,19 +164,19 @@ class Portfolio:
         df[index_columns] = df["Pair"].str.split("-", expand=True)
         df.drop(columns="Pair", inplace=True)
 
-        # Add crypto fees as dummy transactions to account for total size inside portfolio
-        fees = self.transactions_handler.withdrawals.drop(columns=["TxHash", "Address", "Chain", "Coin"])
-        fees = fees[fees["Fee"] > 0]
-        fees["Side"] = "sell"
-        fees["Size"] = -fees["Fee"]
-        fees["Symbol Buy"] = fees["Fee currency"]
-        fees["Symbol Sell"] = "USD"
-        fees["Funds"] = 0.0
-        fees["Fee"] = 0.0
-        fees["Fee currency"] = "USD"
-        fees["Broker"] = "Dummy"
-        fees = fees[df.columns]
-        df = pd.concat((df, fees))
+        # # Add crypto fees as dummy transactions to account for total size inside portfolio
+        # fees = self.transactions_handler.withdrawals.drop(columns=["TxHash", "Address", "Chain", "Coin"])
+        # fees = fees[fees["Fee"] > 0]
+        # fees["Side"] = "sell"
+        # fees["Size"] = -fees["Fee"]
+        # fees["Symbol Buy"] = fees["Fee currency"]
+        # fees["Symbol Sell"] = "USD"
+        # fees["Funds"] = 0.0
+        # fees["Fee"] = 0.0
+        # fees["Fee currency"] = "USD"
+        # fees["Broker"] = "Dummy"
+        # fees = fees[df.columns]
+        # df = pd.concat((df, fees))
 
         # Create profit dataframe
         # All buy order funds
