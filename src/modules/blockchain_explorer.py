@@ -126,17 +126,12 @@ class BlockchainExplorer:
             if tx["hash"] in self.tx_hashes:
                 continue
             func = tx["functionName"].split("(")[0]
-            if func == "":
+            if func in ["", "approve"]:
                 df_w_row = self._process_eth_tx(tx)
-            elif func == "approve":
-                df_w_row = self._process_approve(tx)
             elif func == "transfer":
                 df_w_row = self._process_transfer(tx)
-            elif func == "execute":
+            elif func in ["execute", "swap"]:
                 df_tx_row, df_w_row = self._process_swap(tx, addr)
-            elif func == "swap":
-                df_tx_row, df_w_row = self._process_swap(tx, addr)
-                pass
             else:
                 raise NotImplementedError(f"Blockchain function not recognised: {func}")
             self.tx_hashes.append(tx["hash"])
@@ -184,21 +179,6 @@ class BlockchainExplorer:
         }
         return pd.DataFrame([transfer])
 
-    def _process_approve(self, tx: Dict) -> pd.DataFrame:
-        """
-        Token approvals on the Ethereum blockchain.
-        """
-        approval = {
-            "Datetime": self._get_datetime(int(tx["timeStamp"])),
-            "Coin": "ETH",
-            "Chain": "ETH",
-            "Address": tx["to"],
-            "TxHash": tx["hash"],
-            "Fee": self._calc_gas(tx),
-            "Fee currency": "ETH",
-        }
-        return pd.DataFrame([approval])
-
     def _process_transfer(self, tx: Dict) -> pd.DataFrame:
         dt = self._get_datetime(int(tx["timeStamp"]))
         receipt = self._get_api_receipt_for_hash(tx["hash"])
@@ -218,12 +198,11 @@ class BlockchainExplorer:
 
         return pd.DataFrame([transfer])
 
-    def _process_uncompleted_swap(
+    def _process_logs(
         self,
         df_chain: pd.DataFrame,
         tx: Dict,
-        addr_wallet: str,
-        mode: str,
+        addr_wallet: str
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         dt = self._get_datetime(int(tx["timeStamp"]))
         tx_hash = tx["hash"]
@@ -320,7 +299,7 @@ class BlockchainExplorer:
                         )
             return swaps, fees
 
-        if mode == "full" or mode == "sender":
+        if (df_chain["from"] == addr_wallet).any():
             addr_start = addr_wallet
         else:
             addr_start = df_chain[~df_chain["from"].isin(df_chain["to"])]["from"].values
@@ -360,14 +339,7 @@ class BlockchainExplorer:
             chain.append(row)
         df_chain = pd.DataFrame(chain)
  
-        if any(df_chain["from"] == addr) and any(df_chain["to"] == addr):
-            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="full")
-        elif any(df_chain["from"] == addr):
-            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="sender")
-        elif any(df_chain["to"] == addr):
-            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="recipent")
-        else:
-            raise NotImplementedError("???")
+        df_swaps, df_fees = self._process_logs(df_chain, tx, addr)
 
         return df_swaps, df_fees
 
