@@ -8,6 +8,8 @@ from collections import defaultdict
 from tqdm import tqdm
 from datetime import datetime
 
+from .utils.utils import update_df
+
 
 BLACKLIST_FILE = "blacklisted_addresses.txt"
 WALLETS_FILE = "wallets.txt"
@@ -98,16 +100,8 @@ class BlockchainExplorer:
         df_w = pd.DataFrame(columns=columns_w)
         for addr in tqdm(addr_list, desc="Collecting transactions", total=len(addr_list)):
             df_tx_a, df_w_a = self.get_transactions_and_withdrawals_for_address(addr, columns, columns_w)
-            if not df_tx_a.empty:
-                if df_tx.empty:
-                    df_tx = df_tx_a
-                else:
-                    df_tx = pd.concat((df_tx, df_tx_a))
-            if not df_w_a.empty:
-                if df_w.empty:
-                    df_w = df_w_a
-                else:
-                    df_w = pd.concat((df_w, df_w_a))
+            df_tx = update_df(df_tx, df_tx_a)
+            df_w = update_df(df_w, df_w_a)
 
         return df_tx, df_w
 
@@ -128,26 +122,18 @@ class BlockchainExplorer:
             func = tx["functionName"].split("(")[0]
             if func in ["", "approve"]:
                 df_w_row = self._process_eth_tx(tx)
+                df_w_a = update_df(df_w_a, df_w_row)
             elif func == "transfer":
                 df_w_row = self._process_transfer(tx)
+                df_w_a = update_df(df_w_a, df_w_row)
             elif func in ["execute", "swap"]:
                 df_tx_row, df_w_row = self._process_swap(tx, addr)
+                df_w_a = update_df(df_w_a, df_w_row)
+                df_tx_a = update_df(df_tx_a, df_tx_row)
             else:
                 # TODO: Submit withdrawal staked
                 print(f"Warning: Blockchain function not recognised: {func}. Skipping tx")
             self.tx_hashes.append(tx["hash"])
-
-            if func in ["", "approve", "transfer"]:
-                if df_w_a.empty:
-                    df_w_a = df_w_row
-                else:
-                    df_w_a = pd.concat((df_w_a, df_w_row))
-            if func in ["execute", "swap"]:
-                pass
-                if df_tx_a.empty:
-                    df_tx_a = df_tx_row
-                else:
-                    df_tx_a = pd.concat((df_tx_a, df_tx_row))
 
         return df_tx_a, df_w_a
 
@@ -342,10 +328,7 @@ class BlockchainExplorer:
  
         df_swaps, df_fees = self._process_logs(df_chain, tx, addr)
         df_fee_eth = self._process_eth_tx(tx)
-        if df_fees.empty:
-            df_fees = df_fee_eth
-        else:
-            df_fees = pd.concat((df_fees, df_fee_eth))
+        df_fees = update_df(df_fees, df_fee_eth)
 
         return df_swaps, df_fees
 

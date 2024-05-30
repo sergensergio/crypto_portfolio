@@ -6,6 +6,7 @@ from typing import List, Callable, Optional, Dict, Tuple
 from .conversion_handler import ConversionHandler
 from .broker_interfaces import BisonInterface, BitvavoInterface, KuCoinInterface, MEXCInterface, BitgetInterface
 from .blockchain_explorer import BlockchainExplorer
+from .utils.utils import update_df
 
 
 COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Fee currency", "Broker"]
@@ -33,10 +34,7 @@ class TransactionsHandler:
         """
         Concats df to self.transactions
         """
-        if self.transactions.empty:
-            self.transactions = df
-        else:
-            self.transactions = pd.concat((self.transactions, df))
+        self.transactions = update_df(self.transactions, df)
         self.transactions.sort_values(by=["Datetime"] , inplace=True)
         self.transactions.drop_duplicates(subset=["Datetime", "Pair", "Side"], inplace=True)
         self.transactions.reset_index(drop=True, inplace=True)
@@ -45,12 +43,9 @@ class TransactionsHandler:
         """
         Concats df to self.withdrawals
         """
-        if self.withdrawals.empty:
-            self.withdrawals = df
-        else:
-            self.withdrawals = pd.concat((self.withdrawals, df))
+        self.withdrawals = update_df(self.withdrawals, df)
         self.withdrawals.sort_values(by=["Datetime"] , inplace=True)
-        self.withdrawals.drop_duplicates(subset=["Datetime", "Coin"], inplace=True)
+        self.withdrawals.drop_duplicates(subset=["Datetime", "Coin", "Fee currency"], inplace=True)
         self.withdrawals.reset_index(drop=True, inplace=True)
 
     def _prepare_dataframe_from_dict_list(self, d_l: List[Dict]) -> pd.DataFrame: 
@@ -164,10 +159,7 @@ class TransactionsHandler:
         ))):
             df = pd.read_csv(os.path.join(self.history_root, sym + ".csv"), delimiter=";")
             df["sym"] = sym
-            if not df_hist.empty:
-                df_hist = pd.concat((df_hist, df))
-            else:
-                df_hist = df
+            df_hist = update_df(df_hist, df)
         df_hist["day"] = df_hist["timestamp"].str[:10]
         df_hist = df_hist[["open", "close", "day", "sym"]]
 
@@ -284,6 +276,6 @@ class TransactionsHandler:
         df_tx = self._sanitize_df(df_tx, COLUMNS, DTYPES)
         df_tx = self._convert_transactions(df_tx)
         self._extend_transactions_dataframe(df_tx)
-        df_w.drop_duplicates(subset=["TxHash"], inplace=True)
+        df_w.drop_duplicates(subset=["TxHash", "Fee currency"], inplace=True)
         df_w = self._sanitize_df(df_w, COLUMNS_W, DTYPES_W)
         self._extend_withdrawals_dataframe(df_w)
