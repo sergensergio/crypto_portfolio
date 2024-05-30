@@ -59,7 +59,7 @@ class Portfolio:
         profits/losses for each coin for each year.
         """
 
-        df.sort_values("Datetime")
+        df.sort_values(["Datetime", "Side"], inplace=True)
         # Total Size is the size of the asset inside the portfolio for a given datetime,
         # i.e. the cumultative sum of the sizes of the orders
         df["Price"] = -df["Funds"] / df["Size"]
@@ -93,7 +93,7 @@ class Portfolio:
                 # and received to get realised profit/loss
                 
                 # Get only past buy orders
-                past = df_sym_buy["Datetime"] < dt
+                past = df_sym_buy["Datetime"] <= dt
                 # Get first datetime for which the sell size is covered by the total size
                 first_dt = (df_sym_buy["Total Size"] + row["Size"] >= 0).idxmax()
                 # Reduce past Total Size by the sell amount
