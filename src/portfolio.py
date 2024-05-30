@@ -59,7 +59,7 @@ class Portfolio:
         profits/losses for each coin for each year.
         """
 
-        df.sort_values("Datetime")
+        df.sort_values(["Datetime", "Side"], inplace=True)
         # Total Size is the size of the asset inside the portfolio for a given datetime,
         # i.e. the cumultative sum of the sizes of the orders
         df["Price"] = -df["Funds"] / df["Size"]
@@ -93,7 +93,7 @@ class Portfolio:
                 # and received to get realised profit/loss
                 
                 # Get only past buy orders
-                past = df_sym_buy["Datetime"] < dt
+                past = df_sym_buy["Datetime"] <= dt
                 # Get first datetime for which the sell size is covered by the total size
                 first_dt = (df_sym_buy["Total Size"] + row["Size"] >= 0).idxmax()
                 # Reduce past Total Size by the sell amount
@@ -164,19 +164,19 @@ class Portfolio:
         df[index_columns] = df["Pair"].str.split("-", expand=True)
         df.drop(columns="Pair", inplace=True)
 
-        # Add crypto fees as dummy transactions to account for total size inside portfolio
-        fees = self.transactions_handler.withdrawals.drop(columns=["TxHash", "Address", "Chain", "Coin"])
-        fees = fees[fees["Fee"] > 0]
-        fees["Side"] = "sell"
-        fees["Size"] = -fees["Fee"]
-        fees["Symbol Buy"] = fees["Fee currency"]
-        fees["Symbol Sell"] = "USD"
-        fees["Funds"] = 0.0
-        fees["Fee"] = 0.0
-        fees["Fee currency"] = "USD"
-        fees["Broker"] = "Dummy"
-        fees = fees[df.columns]
-        df = pd.concat((df, fees))
+        # # Add crypto fees as dummy transactions to account for total size inside portfolio
+        # fees = self.transactions_handler.withdrawals.drop(columns=["TxHash", "Address", "Chain", "Coin"])
+        # fees = fees[fees["Fee"] > 0]
+        # fees["Side"] = "sell"
+        # fees["Size"] = -fees["Fee"]
+        # fees["Symbol Buy"] = fees["Fee currency"]
+        # fees["Symbol Sell"] = "USD"
+        # fees["Funds"] = 0.0
+        # fees["Fee"] = 0.0
+        # fees["Fee currency"] = "USD"
+        # fees["Broker"] = "Dummy"
+        # fees = fees[df.columns]
+        # df = pd.concat((df, fees))
 
         # Create profit dataframe
         # All buy order funds
@@ -463,9 +463,9 @@ def personal_portfolio(pf: Portfolio, path_tx: str, path_w: str) -> None:
             "Datetime": "2023-12-03 16:58:00",
             "Pair": "WECO-BNB",
             "Side": "buy",
-            "Size": 6486.648,
+            "Size": 6486.648248643379300367,
             "Funds": 0.008,
-            "Fee": 0.001,
+            "Fee": 0.000412734,
             "Fee currency": "BNB",
             "Broker": "PancakeSwap",
         },
@@ -473,9 +473,9 @@ def personal_portfolio(pf: Portfolio, path_tx: str, path_w: str) -> None:
             "Datetime": "2023-12-03 21:05:00",
             "Pair": "WECO-BNB",
             "Side": "buy",
-            "Size": 4310655.395,
-            "Funds": 4.772,
-            "Fee": 0.001,
+            "Size": 4310655.395332922452549544,
+            "Funds": 4.771801126,
+            "Fee": 0.000361506,
             "Fee currency": "BNB",
             "Broker": "PancakeSwap",
         },
