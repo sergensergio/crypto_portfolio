@@ -488,37 +488,7 @@ def personal_portfolio(pf: Portfolio, path_tx: str, path_w: str) -> None:
             "Fee": 0,
             "Fee currency": "USDT",
             "Broker": "Chainge App",
-        },
-        {
-            "Datetime": "2024-03-16 10:53:59",
-            "Pair": "WETH-USDT",
-            "Side": "buy",
-            "Size": 0.354733899587312852,
-            "Funds": -1321.763966,
-            "Fee": 0.006329632144952564,
-            "Fee currency": "ETH",
-            "Broker": "Uniswap",
-        },
-        {
-            "Datetime": "2024-03-16 10:56:35",
-            "Pair": "SOUTH-WETH",
-            "Side": "buy",
-            "Size": 77.458346295975289318,
-            "Funds": -0.216,
-            "Fee": 0.004939344011454846,
-            "Fee currency": "ETH",
-            "Broker": "Uniswap",
-        },
-        {
-            "Datetime": "2024-03-16 10:57:59",
-            "Pair": "TBANK-WETH",
-            "Side": "buy",
-            "Size": 430.867432058272424982,
-            "Funds": -0.135,
-            "Fee": 0.003334170916421401,
-            "Fee currency": "ETH",
-            "Broker": "Uniswap",
-        },
+        }
     ]
     pf.add_transactions_manually(swaps)
 

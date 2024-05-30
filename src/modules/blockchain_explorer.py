@@ -8,6 +8,8 @@ from collections import defaultdict
 from tqdm import tqdm
 from datetime import datetime
 
+from .utils.utils import update_df
+
 
 BLACKLIST_FILE = "blacklisted_addresses.txt"
 WALLETS_FILE = "wallets.txt"
@@ -40,6 +42,8 @@ class BlockchainExplorer:
                 lines = file.readlines()
             self.wallets = set([line.strip() for line in lines])
 
+        self.tx_hashes: List[str] = []
+
     def search_blockchain(self, addr_list: List[str]) -> List[str]:
         if isinstance(addr_list, str):
             addr_list = [addr_list]
@@ -56,8 +60,9 @@ class BlockchainExplorer:
         return list(self.wallets)
         
     def _search(self, addr: str):
+        # TODO: Directly search for TxHashes?
         tqdm.write(f"Address {addr}:")
-        if (addr.lower() in self.wallets) or (addr.lower() in self.blacklist):
+        if (addr in self.wallets) or (addr in self.blacklist):
             tqdm.write(f"Known address, skip...")
             return
 
@@ -95,16 +100,8 @@ class BlockchainExplorer:
         df_w = pd.DataFrame(columns=columns_w)
         for addr in tqdm(addr_list, desc="Collecting transactions", total=len(addr_list)):
             df_tx_a, df_w_a = self.get_transactions_and_withdrawals_for_address(addr, columns, columns_w)
-            if not df_tx_a.empty:
-                if df_tx.empty:
-                    df_tx = df_tx_a
-                else:
-                    df_tx = pd.concat((df_tx, df_tx_a))
-            if not df_w_a.empty:
-                if df_w.empty:
-                    df_w = df_w_a
-                else:
-                    df_w = pd.concat((df_w, df_w_a))
+            df_tx = update_df(df_tx, df_tx_a)
+            df_w = update_df(df_w, df_w_a)
 
         return df_tx, df_w
 
@@ -114,25 +111,29 @@ class BlockchainExplorer:
         columns: List[str],
         columns_w: List[str]
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        res, _ = self._get_api_response(addr)
-        grouped_tx = self._get_grouped_txs(res)
+        res, status = self._get_api_txs_for_address(addr)
         df_tx_a = pd.DataFrame(columns=columns)
         df_w_a = pd.DataFrame(columns=columns_w)
-        for g in grouped_tx.values():
-            if len(g) < 2:
-                if g[0]["from"] in self.wallets:
-                    df_w_t = self._process_transfer(g[0], addr)
-                    if df_w_a.empty:
-                        df_w_a = df_w_t
-                    else:
-                        df_w_a = pd.concat((df_w_a, df_w_t))
+        if not status:
+            return df_tx_a, df_w_a
+        for tx in res:
+            if tx["hash"] in self.tx_hashes:
                 continue
-
-            df_tx_s = self._process_swap(g, addr)
-            if df_tx_a.empty:
-                df_tx_a = df_tx_s
+            func = tx["functionName"].split("(")[0]
+            if func in ["", "approve"]:
+                df_w_row = self._process_eth_tx(tx)
+                df_w_a = update_df(df_w_a, df_w_row)
+            elif func == "transfer":
+                df_w_row = self._process_transfer(tx)
+                df_w_a = update_df(df_w_a, df_w_row)
+            elif func in ["execute", "swap"]:
+                df_tx_row, df_w_row = self._process_swap(tx, addr)
+                df_w_a = update_df(df_w_a, df_w_row)
+                df_tx_a = update_df(df_tx_a, df_tx_row)
             else:
-                df_tx_a = pd.concat((df_tx_a, df_tx_s))
+                # TODO: Submit withdrawal staked
+                print(f"Warning: Blockchain function not recognised: {func}. Skipping tx")
+            self.tx_hashes.append(tx["hash"])
 
         return df_tx_a, df_w_a
 
@@ -146,45 +147,190 @@ class BlockchainExplorer:
     def _calc_gas(self, t: Dict) -> float:
         return (float(t["gasUsed"]) / 1e9) * (float(t["gasPrice"]) / 1e9)
 
-    def _process_transfer(self, t: Dict, addr: str) -> pd.DataFrame:
-        dt = self._get_datetime(int(t["timeStamp"]))
-        fee = self._calc_gas(t)
+    def _get_addr_no_padding(self, h: str) -> str:
+        return "0x" + h[-40:]
+
+    def _process_eth_tx(self, tx: Dict) -> pd.DataFrame:
+        """
+        Transactions which are a simple transfer of ETH from
+        one wallet to another.
+        """
+        transfer = {
+            "Datetime": self._get_datetime(int(tx["timeStamp"])),
+            "Coin": "ETH",
+            "Chain": "ETH",
+            "Address": tx["to"],
+            "TxHash": tx["hash"],
+            "Fee": self._calc_gas(tx),
+            "Fee currency": "ETH",
+        }
+        return pd.DataFrame([transfer])
+
+    def _process_transfer(self, tx: Dict) -> pd.DataFrame:
+        dt = self._get_datetime(int(tx["timeStamp"]))
+        receipt = self._get_api_receipt_for_hash(tx["hash"])
+        coin = self._get_api_symbol(receipt["logs"][0]["address"])
+        to = self._get_addr_no_padding(receipt["logs"][-1]["topics"][2])
+        fee = self._calc_gas(tx)
 
         transfer = {
             "Datetime": dt,
-            "Coin": t["tokenSymbol"],
+            "Coin": coin,
             "Chain": "ETH",
-            "Address": t["to"],
-            "TxHash": t["hash"],
+            "Address": to,
+            "TxHash": tx["hash"],
             "Fee": fee,
             "Fee currency": "ETH",
         }
 
         return pd.DataFrame([transfer])
 
-    def _process_swap(self, g: List[Dict], addr: str) -> pd.DataFrame:
-        def calc_amount(tx: Dict) -> float:
-            dec = int(tx["tokenDecimal"])
-            return float(tx["value"]) / (10**dec)
+    def _process_logs(
+        self,
+        df_chain: pd.DataFrame,
+        tx: Dict,
+        addr_wallet: str
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        dt = self._get_datetime(int(tx["timeStamp"]))
+        tx_hash = tx["hash"]
+        def search_chain(
+            addr: str,
+            sym_old: str,
+            data_old: float,
+            df: pd.DataFrame,
+            swaps: List[Dict],
+            fees: List[Dict],
+        ):
+            df_from_addr = df[df["from"] == addr]
+            for i, row in df_from_addr.iterrows():
+                if row["symbol"] == sym_old:
+                    # If this address makes a tx with the same symbol as previous address, then
+                    # it is either passing the crypto to the next address or making a fee payment
+                    if (df["from"] == row["to"]).any():
+                        # Check next address
+                        swaps, fees = search_chain(
+                            row["to"],
+                            row["symbol"],
+                            row["data"],
+                            df[df["from"] != addr].copy(),
+                            swaps,
+                            fees
+                        )
+                    else:
+                        # Dead end -> fee payment
+                        # Special case: if wallet address is recipent of the tx,
+                        # then its considered as already swapped
+                        if row["to"] == addr_wallet:
+                            continue
+                        fee = {
+                            "Datetime": dt,
+                            "Coin": row["symbol"],
+                            "Chain": "ETH",
+                            "Address": row["to"],
+                            "TxHash": tx_hash,
+                            "Fee": row["data"],
+                            "Fee currency": row["symbol"]
+                        }
+                        fees.append(fee)
+                else:
+                    # If this address makes a tx with another symbol than previous address, then
+                    # it is a swap
+                    if (df_from_addr["to"] == addr_wallet).any():
+                        # Special case: if wallet address is recipent of the uncompleted swap,
+                        # then check if wallet address is under to-addresses. In that case
+                        # The swap is the tx with wallet and other txs are fee payments
+                        if row["to"] == addr_wallet:
+                            swap = {
+                                "Datetime": dt,
+                                "Pair": row["symbol"] + "-" + sym_old,
+                                "Side": "buy",
+                                "Size": row["data"],
+                                "Funds": -data_old,
+                                "Fee": 0,
+                                "Fee currency": "ETH",
+                                "Broker": "DEX"
+                            }
+                            swaps.append(swap)
+                        else:
+                            fee = {
+                                "Datetime": dt,
+                                "Coin": row["symbol"],
+                                "Chain": "ETH",
+                                "Address": row["to"],
+                                "TxHash": tx_hash,
+                                "Fee": row["data"],
+                                "Fee currency": row["symbol"]
+                            }
+                            fees.append(fee)
+                    else:
+                        swap = {
+                            "Datetime": dt,
+                            "Pair": row["symbol"] + "-" + sym_old,
+                            "Side": "buy",
+                            "Size": row["data"],
+                            "Funds": -data_old,
+                            "Fee": 0,
+                            "Fee currency": "ETH",
+                            "Broker": "DEX"
+                        }
+                        swaps.append(swap)
+                    if (df["from"] == row["to"]).any():
+                        # Check next address
+                        swaps, fees = search_chain(
+                            row["to"],
+                            row["symbol"],
+                            row["data"],
+                            df[df["from"] != addr].copy(),
+                            swaps,
+                            fees
+                        )
+            return swaps, fees
 
-        dt = self._get_datetime(int(g[0]["timeStamp"]))
+        if (df_chain["from"] == addr_wallet).any():
+            addr_start = addr_wallet
+        else:
+            addr_start = df_chain[~df_chain["from"].isin(df_chain["to"])]["from"].values
+            assert len(addr_start) == 1
+            addr_start = addr_start[0]
+        sym_start = df_chain[df_chain["from"] == addr_start]["symbol"].values[0]
+        data_start = df_chain[df_chain["from"] == addr_start]["data"].values[0]
+        swaps = []
+        fees = []
+        swaps, fees = search_chain(
+            addr_start,
+            sym_start,
+            data_start, 
+            df_chain.copy(),
+            swaps,
+            fees
+        )
+        return pd.DataFrame(swaps), pd.DataFrame(fees)
 
-        sell_sym = g[0]["tokenSymbol"] if g[0]["from"] == addr else g[1]["tokenSymbol"]
-        buy_sym = g[1]["tokenSymbol"] if g[0]["from"] == addr else g[0]["tokenSymbol"]
-        sell_amount = calc_amount(g[0]) if g[0]["from"] == addr else calc_amount(g[1])
-        buy_amount = calc_amount(g[1]) if g[0]["from"] == addr else calc_amount(g[0])
-        fee_eth = self._calc_gas(g[0])
-        swap = {
-            "Datetime": dt,
-            "Pair": buy_sym + "-" + sell_sym,
-            "Side": "buy",
-            "Size": buy_amount,
-            "Funds": -sell_amount,
-            "Fee": fee_eth,
-            "Fee currency": "ETH",
-            "Broker": "DEX"  # TODO: Get DEX
-        }
-        return pd.DataFrame([swap])
+    def _process_swap(self, tx: Dict, addr: str) -> pd.DataFrame:
+        receipt = self._get_api_receipt_for_hash(tx["hash"])
+        chain = []
+        for log in receipt["logs"]:
+            if (len(log["data"]) > 66) or (len(log["topics"]) < 3):
+                continue
+            fr = self._get_addr_no_padding(log["topics"][1])
+            to = self._get_addr_no_padding(log["topics"][2])
+            dec = self._get_api_decimals(log["address"])
+            data = int(log["data"], 16) / 10**dec
+            sym = self._get_api_symbol(log["address"])
+            row = {
+                "from": fr,
+                "to": to,
+                "data": data,
+                "symbol": sym
+            }
+            chain.append(row)
+        df_chain = pd.DataFrame(chain)
+ 
+        df_swaps, df_fees = self._process_logs(df_chain, tx, addr)
+        df_fee_eth = self._process_eth_tx(tx)
+        df_fees = update_df(df_fees, df_fee_eth)
+
+        return df_swaps, df_fees
 
     def _get_grouped_txs(self, txs):
         grouped = defaultdict(list)
@@ -194,6 +340,48 @@ class BlockchainExplorer:
 
     def _get_api_response(self, addr: str) -> Tuple[Union[List, str], int]:
         req = "https://api.etherscan.io/api?module=account&action=tokentx&address={}&sort=asc&apikey={}".format(
+            addr,
+            self.api_key
+        )
+        response = requests.get(req)
+        response = json.loads(response.text)
+        return response["result"], int(response["status"])
+
+    def _get_api_symbol(self, addr: str) -> str:
+        req = "https://api.etherscan.io/api?module=proxy&action=eth_call&to={}&data=0x95d89b41&tag=latest&apikey={}".format(
+            addr,
+            self.api_key
+        )
+        response = requests.get(req)
+        response = json.loads(response.text)
+        sym = bytes.fromhex(
+            response["result"][2:]
+        ).decode("utf-8")
+        for s in ["\x06", "\x00", "\x05", "\x04", "\x03", " "]:
+            sym = sym.replace(s, "")
+        return sym
+
+    def _get_api_decimals(self, addr: str) -> str:
+        req = "https://api.etherscan.io/api?module=proxy&action=eth_call&to={}&data=0x313ce567&tag=latest&apikey={}".format(
+            addr,
+            self.api_key
+        )
+        response = requests.get(req)
+        response = json.loads(response.text)
+        num_decimals = int(response["result"], 16)
+        return num_decimals
+
+    def _get_api_receipt_for_hash(self, tx_hash: str) -> Dict:
+        req = "https://api.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash={}&apikey={}".format(
+            tx_hash,
+            self.api_key
+        )
+        response = requests.get(req)
+        response = json.loads(response.text)
+        return response["result"]
+    
+    def _get_api_txs_for_address(self, addr: str) -> Tuple[Union[List, str], int]:
+        req = "https://api.etherscan.io/api?module=account&action=txlist&address={}&sort=asc&apikey={}".format(
             addr,
             self.api_key
         )
