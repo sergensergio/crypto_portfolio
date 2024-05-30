@@ -388,14 +388,3 @@ class BlockchainExplorer:
         response = requests.get(req)
         response = json.loads(response.text)
         return response["result"], int(response["status"])
-
-if __name__ == "__main__":
-    bc = BlockchainExplorer()
-
-    COLUMNS = ["Datetime", "Pair", "Side", "Size", "Funds", "Fee", "Fee currency", "Broker"]
-    COLUMNS_W = ["Datetime", "Coin", "Chain", "Address", "TxHash", "Fee", "Fee currency"]
-
-    # tx = ""
-    ad = "".lower()
-    res = bc.get_transactions_and_withdrawals_for_address_list(ad, COLUMNS, COLUMNS_W)
-    res
