@@ -60,7 +60,7 @@ class BlockchainExplorer:
     def _search(self, addr: str):
         # TODO: Directly search for TxHashes?
         tqdm.write(f"Address {addr}:")
-        if (addr.lower() in self.wallets) or (addr.lower() in self.blacklist):
+        if (addr in self.wallets) or (addr in self.blacklist):
             tqdm.write(f"Known address, skip...")
             return
 
@@ -222,60 +222,122 @@ class BlockchainExplorer:
         self,
         df_chain: pd.DataFrame,
         tx: Dict,
-        addr_w: str
+        addr_wallet: str,
+        mode: str,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         dt = self._get_datetime(int(tx["timeStamp"]))
         tx_hash = tx["hash"]
         def search_chain(
             addr: str,
+            sym_old: str,
+            data_old: float,
             df: pd.DataFrame,
             swaps: List[Dict],
             fees: List[Dict],
-            row_old: pd.Series = None
         ):
-            for row in df.iterrows():
-                if row[1]["from"] == addr.lower():
-                    # Chain continues
-                    swaps, fees = search_chain(
-                        row[1]["to"],
-                        df.drop(row[0]),
-                        swaps,
-                        fees,
-                        row[1]
-                    )
-                elif row[1]["to"] == addr.lower():
-                    # Swap
-                    swap = {
-                        "Datetime": dt,
-                        "Pair": row[1]["symbol"] + "-" + row_old["symbol"],
-                        "Side": "buy",
-                        "Size": row[1]["data"],
-                        "Funds": -row_old["data"],
-                        "Fee": 0,
-                        "Fee currency": "ETH",
-                        "Broker": "DEX"
-                    }
-                    swaps.append(swap)
-                    return swaps, fees
-            if row_old is not None:
-                # End of chain
-                fee = {
-                    "Datetime": dt,
-                    "Coin": row_old["symbol"],
-                    "Chain": "ETH",
-                    "Address": None,
-                    "TxHash": tx_hash,
-                    "Fee": row_old["data"],
-                    "Fee currency": row_old["symbol"]
-                }
-                fees.append(fee)
-                return swaps, fees
-            else:
-                return swaps, fees
-            
+            df_from_addr = df[df["from"] == addr]
+            for i, row in df_from_addr.iterrows():
+                if row["symbol"] == sym_old:
+                    # If this address makes a tx with the same symbol as previous address, then
+                    # it is either passing the crypto to the next address or making a fee payment
+                    if (df["from"] == row["to"]).any():
+                        # Check next address
+                        swaps, fees = search_chain(
+                            row["to"],
+                            row["symbol"],
+                            row["data"],
+                            df[df["from"] != addr].copy(),
+                            swaps,
+                            fees
+                        )
+                    else:
+                        # Dead end -> fee payment
+                        # Special case: if wallet address is recipent of the tx,
+                        # then its considered as already swapped
+                        if row["to"] == addr_wallet:
+                            continue
+                        fee = {
+                            "Datetime": dt,
+                            "Coin": row["symbol"],
+                            "Chain": "ETH",
+                            "Address": row["to"],
+                            "TxHash": tx_hash,
+                            "Fee": row["data"],
+                            "Fee currency": row["symbol"]
+                        }
+                        fees.append(fee)
+                else:
+                    # If this address makes a tx with another symbol than previous address, then
+                    # it is a swap
+                    if (df_from_addr["to"] == addr_wallet).any():
+                        # Special case: if wallet address is recipent of the uncompleted swap,
+                        # then check if wallet address is under to-addresses. In that case
+                        # The swap is the tx with wallet and other txs are fee payments
+                        if row["to"] == addr_wallet:
+                            swap = {
+                                "Datetime": dt,
+                                "Pair": row["symbol"] + "-" + sym_old,
+                                "Side": "buy",
+                                "Size": row["data"],
+                                "Funds": -data_old,
+                                "Fee": 0,
+                                "Fee currency": "ETH",
+                                "Broker": "DEX"
+                            }
+                            swaps.append(swap)
+                        else:
+                            fee = {
+                                "Datetime": dt,
+                                "Coin": row["symbol"],
+                                "Chain": "ETH",
+                                "Address": row["to"],
+                                "TxHash": tx_hash,
+                                "Fee": row["data"],
+                                "Fee currency": row["symbol"]
+                            }
+                            fees.append(fee)
+                    else:
+                        swap = {
+                            "Datetime": dt,
+                            "Pair": row["symbol"] + "-" + sym_old,
+                            "Side": "buy",
+                            "Size": row["data"],
+                            "Funds": -data_old,
+                            "Fee": 0,
+                            "Fee currency": "ETH",
+                            "Broker": "DEX"
+                        }
+                        swaps.append(swap)
+                    if (df["from"] == row["to"]).any():
+                        # Check next address
+                        swaps, fees = search_chain(
+                            row["to"],
+                            row["symbol"],
+                            row["data"],
+                            df[df["from"] != addr].copy(),
+                            swaps,
+                            fees
+                        )
+            return swaps, fees
+
+        if mode == "full" or mode == "sender":
+            addr_start = addr_wallet
+        else:
+            addr_start = df_chain[~df_chain["from"].isin(df_chain["to"])]["from"].values
+            assert len(addr_start) == 1
+            addr_start = addr_start[0]
+        sym_start = df_chain[df_chain["from"] == addr_start]["symbol"].values[0]
+        data_start = df_chain[df_chain["from"] == addr_start]["data"].values[0]
         swaps = []
         fees = []
-        swaps, fees = search_chain(addr_w, df_chain, swaps, fees)
+        swaps, fees = search_chain(
+            addr_start,
+            sym_start,
+            data_start, 
+            df_chain.copy(),
+            swaps,
+            fees
+        )
         return pd.DataFrame(swaps), pd.DataFrame(fees)
 
     def _process_swap(self, tx: Dict, addr: str) -> pd.DataFrame:
@@ -298,16 +360,12 @@ class BlockchainExplorer:
             chain.append(row)
         df_chain = pd.DataFrame(chain)
  
-        if any(df_chain["from"] == addr.lower()) and any(df_chain["to"] == addr.lower()):
-            pass
-        elif any(df_chain["from"] == addr.lower()):
-            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr)
-        elif any(df_chain["to"] == addr.lower()):
-            fr = df_chain["from"]
-            to = df_chain["to"]
-            df_chain["from"] = to
-            df_chain["to"] = fr
-            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr)
+        if any(df_chain["from"] == addr) and any(df_chain["to"] == addr):
+            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="full")
+        elif any(df_chain["from"] == addr):
+            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="sender")
+        elif any(df_chain["to"] == addr):
+            df_swaps, df_fees = self._process_uncompleted_swap(df_chain, tx, addr, mode="recipent")
         else:
             raise NotImplementedError("???")
 
@@ -335,7 +393,11 @@ class BlockchainExplorer:
         )
         response = requests.get(req)
         response = json.loads(response.text)
-        sym = bytes.fromhex(response["result"][2:]).decode("utf-8").replace("\x00", "").replace("\x04", "").replace("\x03", "").replace(" ", "")
+        sym = bytes.fromhex(
+            response["result"][2:]
+        ).decode("utf-8")
+        for s in ["\x06", "\x00", "\x05", "\x04", "\x03", " "]:
+            sym = sym.replace(s, "")
         return sym
 
     def _get_api_decimals(self, addr: str) -> str:
@@ -373,33 +435,6 @@ if __name__ == "__main__":
     COLUMNS_W = ["Datetime", "Coin", "Chain", "Address", "TxHash", "Fee", "Fee currency"]
 
     # tx = ""
-    ad = ""
+    ad = "".lower()
     res = bc.get_transactions_and_withdrawals_for_address_list(ad, COLUMNS, COLUMNS_W)
-    txs = pd.DataFrame()
-    recs = pd.DataFrame()
-    logs = pd.DataFrame()
-    for tx in res[0]:
-        if txs.empty:
-            txs = pd.DataFrame([tx])
-        else:
-            txs = pd.concat((txs, pd.DataFrame([tx])))
-        rec = bc._get_api_receipt_for_hash(tx["hash"])
-        if recs.empty:
-            recs = pd.DataFrame([rec])
-        else:
-            recs = pd.concat((recs, pd.DataFrame([rec])))
-        log = rec["logs"]
-        if log:
-            pd.DataFrame(log).to_csv(f"log_{log[0]['transactionHash']}.csv", index=False, sep=";")
-        # if logs.empty:
-        #     logs = pd.DataFrame(log)
-        # else:
-        #     logs = pd.concat((logs, pd.DataFrame(log)))
-    recs.rename(columns={"transactionHash": "hash"}, inplace=True)
-    #logs.rename(columns={"transactionHash": "hash"}, inplace=True)
-
-    df = txs.reset_index().merge(recs, on=["hash"], how="left", suffixes=(None, "_receipt")).set_index("index")
-    # df = df.reset_index().merge(logs, on=["hash"], how="left", suffixes=(None, "_logs")).set_index("index")
-
-    df.to_csv("df.csv", index=False, sep=";")
-    #df_filtered = df[["timeStamp", "hash", "from", "to", "value", "gasPrice", "gasUsed", "functionName", "address", "topics"]]
+    res

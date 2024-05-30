@@ -276,7 +276,7 @@ class TransactionsHandler:
 
     def add_blockchain_transactions(self) -> pd.DataFrame:
         addr_list = self.withdrawals["Address"].values.tolist()
-        addr_list = list(set([addr for addr in addr_list if addr]))
+        addr_list = list(set([addr.lower() for addr in addr_list if addr]))
         if not addr_list:
             return
         wallets = self.blockchain_explorer.search_blockchain(addr_list)
