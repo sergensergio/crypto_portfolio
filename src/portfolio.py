@@ -376,7 +376,6 @@ class Portfolio:
 
 
 def personal_portfolio(pf: Portfolio, path_tx: str, path_w: str) -> None:
-    pf = Portfolio()
     for filename in glob.iglob(path_tx + "/**/*.csv", recursive=True):
         pf.add_transactions_from_csv(file_path=filename)
 
