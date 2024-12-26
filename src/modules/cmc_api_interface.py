@@ -85,8 +85,8 @@ class CMCApiInterface:
 
         data = self._get_data_from_cache(symbol)
         if data:
-            return data["data"][symbol]["quote"]["USD"]["price"]
+            return data["data"][symbol.upper()]["quote"]["USD"]["price"]
 
         new_data = self._get_data_from_api(symbol)
         
-        return new_data["data"][symbol]["quote"]["USD"]["price"]
+        return new_data["data"][symbol.upper()]["quote"]["USD"]["price"]

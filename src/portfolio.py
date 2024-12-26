@@ -11,6 +11,7 @@ from datetime import datetime
 
 from modules.transactions_handler import TransactionsHandler
 from modules.cmc_api_interface import CMCApiInterface
+from modules.utils.utils import update_df
 
 class Portfolio:
     def __init__(
@@ -70,18 +71,22 @@ class Portfolio:
         df = df.sort_index()
 
         realized_profits = []
+        buy_not_realized = pd.DataFrame()
 
         for sym in df.index.levels[0]:
+            df_sym_buy = df.loc[sym, "buy"].copy()
+            df_sym_buy.reset_index(inplace=True)
             try:
                 df_sym_sell = df.loc[sym, "sell"].copy()
             except:
                 print(f"No sell orders yet for {sym}...")
+                left_buys = df_sym_buy[["Datetime", "Size", "Price"]].copy()
+                left_buys["Symbol"] = sym
+                buy_not_realized = update_df(buy_not_realized, left_buys)
                 continue
             if any(["USD" not in elem for elem in df.loc[sym]["Symbol Sell"].unique()]):
                 print(f"Warning: Different sell symbol than USD or USDT for {sym}")
 
-            df_sym_buy = df.loc[sym, "buy"].copy()
-            df_sym_buy.reset_index(inplace=True)
             df_sym_buy["Sold Size"] = 0.0
             df_sym_buy["Sold Value"] = 0.0
             df_sym_buy["Profits"] = 0.0
@@ -89,7 +94,7 @@ class Portfolio:
             df_sym_buy["To be taxed"] = False
             for dt, row in df_sym_sell.iterrows():
                 # If coins are sold, substract sell amount in FIFO manner from all
-                # the buy orders until sell amount is reached and compare funds paid
+                # the buy orders until sell amount is filled and compare funds paid
                 # and received to get realised profit/loss
                 
                 # Get only past buy orders
@@ -104,7 +109,7 @@ class Portfolio:
                 size_ratio = 1 - (df_sym_buy.loc[first_dt]["Total Size"] / df_sym_buy.loc[first_dt]["Size"])
                 # Get the corresponding funds share
                 funds_share = size_ratio * df_sym_buy.loc[first_dt]["Funds"]
-                # The funds which have been paid  for the size of the sell order
+                # The funds which have been paid for the size of the sell order
                 funds_paid = funds_share + df_sym_buy.loc[df_sym_buy.index < first_dt]["Funds"].sum()
                 # Get amount which needs to be taxed (token held less than 1 year according to German tax law)
                 df_sym_buy.loc[df_sym_buy.index <= first_dt, "Sold Size"] = \
@@ -153,7 +158,16 @@ class Portfolio:
                 }
                 realized_profits.append(row_new)
 
-        return pd.DataFrame(realized_profits)
+            left_buys = df_sym_buy.loc[first_dt:].copy()
+            if not ((len(left_buys) == 1) and (left_buys["Funds"].values[0] < 10)):
+                left_buys = left_buys[["Datetime", "Size", "Price"]]
+                left_buys["Symbol"] = sym
+                buy_not_realized = update_df(buy_not_realized, left_buys)
+
+        buy_not_realized.reset_index(inplace=True, drop=True)
+        buy_not_realized = buy_not_realized[buy_not_realized["Size"] > 0]
+
+        return pd.DataFrame(realized_profits), buy_not_realized
 
     def show_portfolio(self):
         # Add transactions from blockchain search to transactions
@@ -184,7 +198,15 @@ class Portfolio:
         profit_df[["Size", "Fee"]] = df.groupby("Symbol Buy").sum()[["Size", "Fee"]]
 
         # Get realized profits
-        realized_profits = self.get_realized_profits(df.copy())
+        realized_profits, buy_not_realized = self.get_realized_profits(df.copy())
+
+        # Bought coins which are not sold yet
+        buy_not_realized["Held days"] = (
+            datetime.now() - buy_not_realized["Datetime"].apply(
+                lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
+            )
+        ).apply(lambda y: y.days)
+        buy_not_realized["Taxfree"] = buy_not_realized["Held days"] > 365  # Just to be sure
 
         # Put total profits (sum over all datetimes) in profit dataframe
         total_profits = realized_profits.groupby("Symbol Buy").sum().drop(columns="Datetime")
@@ -197,6 +219,7 @@ class Portfolio:
 
         # Set current market prices
         profit_df["Current Price"] = 0.0
+        buy_not_realized["Current Price"] = 0.0
         for symbol in tqdm(
             profit_df.index,
             desc="Get current prices",
@@ -204,16 +227,45 @@ class Portfolio:
         ):
             if symbol == "CHNG":
                 symbol = "XCHNG"
+            if symbol == "RNDR":
+                symbol = "RENDER"
             if symbol == "wCADAI":
-                current_price = 1
-            else:
-                current_price = self.cmc_api_interface.get_price_for_symbol(symbol)
+                symbol = "CADAI"
+            if symbol == "ATOR":
+                symbol = "ANYONE"
+            # else:
+            current_price = self.cmc_api_interface.get_price_for_symbol(symbol)
             if symbol == "XCHNG":
                 symbol = "CHNG"
+            if symbol == "RENDER":
+                symbol = "RNDR"
+            if symbol == "CADAI":
+                symbol = "wCADAI"
+            if symbol == "ANYONE":
+                symbol = "ATOR"
             profit_df.loc[symbol, "Current Price"] = current_price
+            if symbol in buy_not_realized["Symbol"].values:
+                buy_not_realized.loc[buy_not_realized["Symbol"] == symbol, "Current Price"] = current_price
 
         profit_df["Current Value"] = profit_df["Current Price"] * profit_df["Size"]
         profit_df["Fully Sold"] = profit_df["Current Value"] < 0.1
+
+        buy_not_realized["Current Value"] = buy_not_realized["Current Price"] * buy_not_realized["Size"]
+        buy_not_realized["Value"] = buy_not_realized["Price"] * buy_not_realized["Size"]
+        buy_not_realized["Potential Profit/Loss"] = buy_not_realized["Current Value"] - buy_not_realized["Value"]
+        buy_not_realized = buy_not_realized[
+            ["Symbol", "Datetime", "Size", "Potential Profit/Loss", "Held days", "Taxfree"]
+        ]
+        buy_not_realized_taxfree = buy_not_realized[buy_not_realized["Taxfree"]].groupby(["Symbol"]).agg(
+            {"Size": "sum", "Potential Profit/Loss": "sum"}
+        ).reset_index()
+        buy_not_realized_tax: pd.DataFrame = buy_not_realized[~buy_not_realized["Taxfree"]].groupby(["Symbol", "Datetime"]).sum()
+        buy_not_realized_tax = buy_not_realized_tax[["Size", "Potential Profit/Loss", "Held days"]].sort_values("Held days", ascending=False).sort_index().reset_index()
+        buy_not_realized_tax["Datetime"] = (
+            buy_not_realized_tax["Datetime"].apply(
+                lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
+            )
+        ).apply(lambda y: datetime.strftime(y, "%Y-%m-%d"))
 
         # Calculate gains
         profit_df.loc[abs(profit_df["Funds paid"]) > 0, "x realized"] = abs(profit_df["Funds received"] / profit_df["Funds paid"])
@@ -244,6 +296,10 @@ class Portfolio:
         # Realized profits
         pl_df = profit_df[abs(profit_df["Funds paid"]) > 0]
         self.plot_bar_x(pl_df.copy(), "x realized")
+
+        # Tax situation on holdings
+        self.plot_taxfree(buy_not_realized_taxfree)
+        buy_not_realized_tax.to_csv(os.path.join(self.fig_path, "tax.csv"), sep=";", index=False)
 
         # Fees per Broker
         fees_df = self.transactions_handler.get_fees_per_broker()
@@ -350,6 +406,34 @@ class Portfolio:
             if key[0] == 0:
                 cell.set_text_props(fontweight='bold')
         plt.savefig(os.path.join(self.fig_path, "table.png"))
+
+    def plot_taxfree(self, df: pd.DataFrame) -> None:
+        # Biggest 5 positions with size held
+        def custom_format(val):
+            if isinstance(val, str):  # If the value is a string, return as is
+                return val
+            elif abs(val) < 10:  # For very small values
+                return f"{val:,.2f}"
+            else:  # For other values
+                return f"{val:,.0f}"
+        h = 4
+        w = 8
+        fig, ax = plt.subplots(figsize=(w, h))
+        ax.axis('off')
+        df = df.sort_values("Potential Profit/Loss", ascending=False)
+        df[["Size", "Potential Profit/Loss"]] = df[["Size", "Potential Profit/Loss"]].map(custom_format)
+        df["Potential Profit/Loss"] = df["Potential Profit/Loss"] + " $"
+        table = ax.table(
+            cellText=df.values,
+            colLabels=df.columns,
+            cellLoc='right',
+            loc='center'
+        )
+        for key, cell in table.get_celld().items():
+            cell.set_height(0.1)
+            if key[0] == 0:
+                cell.set_text_props(fontweight='bold')
+        plt.savefig(os.path.join(self.fig_path, "taxfree.png"))
 
     def plot_bar_x(self, pf_df: pd.DataFrame, col: str) -> None:
         # Plot current x values

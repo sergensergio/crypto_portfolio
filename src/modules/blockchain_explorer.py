@@ -357,7 +357,7 @@ class BlockchainExplorer:
         sym = bytes.fromhex(
             response["result"][2:]
         ).decode("utf-8")
-        for s in ["\x06", "\x00", "\x05", "\x04", "\x03", " "]:
+        for s in ["\x06", "\x00", "\x05", "\x04", "\x03", "\x07", " "]:
             sym = sym.replace(s, "")
         return sym
 
